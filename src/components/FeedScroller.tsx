@@ -2,6 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
+declare global {
+  interface Window {
+    YT?: any;
+    onYouTubeIframeAPIReady?: () => void;
+    _ytApiReady?: boolean;
+    _ytApiLoading?: boolean;
+    _ytApiCallbacks?: Array<() => void>;
+  }
+}
+
 type FeedItem = {
   id: string;
   title: string;
@@ -19,8 +29,15 @@ type FeedScrollerProps = {
 };
 
 const TRANSITION_MS = 360;
-const WHEEL_THRESHOLD = 24;
+const WHEEL_THRESHOLD = 100;
 const WHEEL_IDLE_MS = 220;
+
+const getYouTubeId = (url: string) => {
+  const match = url.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/,
+  );
+  return match?.[1] ?? null;
+};
 
 export default function FeedScroller({
   items,
@@ -41,6 +58,12 @@ export default function FeedScroller({
   const wheelIdleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const touchStartRef = useRef<number | null>(null);
   const isAnimatingRef = useRef(false);
+  const videoRefs = useRef(new Map<number, HTMLVideoElement>());
+  const ytContainerRefs = useRef(new Map<number, HTMLDivElement>());
+  const ytPlayerRefs = useRef(new Map<number, any>());
+  const [ytReady, setYtReady] = useState(false);
+  const [needsUserGesture, setNeedsUserGesture] = useState(false);
+  const userInteractedRef = useRef(false);
 
   const visibleIndices = useMemo(() => {
     return [currentIndex - 1, currentIndex, currentIndex + 1].filter(
@@ -130,6 +153,132 @@ export default function FeedScroller({
     onIndexChange?.(currentIndex);
   }, [currentIndex, onIndexChange]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.YT?.Player) {
+      setYtReady(true);
+      return;
+    }
+    if (!window._ytApiCallbacks) {
+      window._ytApiCallbacks = [];
+    }
+    window._ytApiCallbacks.push(() => setYtReady(true));
+    if (window._ytApiLoading) return;
+    window._ytApiLoading = true;
+    const tag = document.createElement("script");
+    tag.src = "https://www.youtube.com/iframe_api";
+    tag.async = true;
+    document.body.appendChild(tag);
+    window.onYouTubeIframeAPIReady = () => {
+      window._ytApiReady = true;
+      window._ytApiLoading = false;
+      window._ytApiCallbacks?.forEach((callback) => callback());
+      window._ytApiCallbacks = [];
+    };
+  }, []);
+
+  const playCurrentMedia = useCallback(
+    (fromGesture = false) => {
+      if (fromGesture) {
+        userInteractedRef.current = true;
+      }
+      setNeedsUserGesture(false);
+
+      videoRefs.current.forEach((video, index) => {
+        if (index !== currentIndex) {
+          video.pause();
+        }
+      });
+
+      const currentVideo = videoRefs.current.get(currentIndex);
+      if (currentVideo) {
+        const playPromise = currentVideo.play();
+        if (playPromise?.catch) {
+          playPromise.catch(() => {
+            if (!userInteractedRef.current) {
+              setNeedsUserGesture(true);
+            }
+          });
+        }
+        return;
+      }
+
+      const ytPlayer = ytPlayerRefs.current.get(currentIndex);
+      if (ytPlayer && typeof ytPlayer.playVideo === "function") {
+        ytPlayer.playVideo();
+        if (typeof ytPlayer.getPlayerState === "function") {
+          setTimeout(() => {
+            const state = ytPlayer.getPlayerState();
+            if (state !== 1 && !userInteractedRef.current) {
+              setNeedsUserGesture(true);
+            }
+          }, 200);
+        }
+      }
+    },
+    [currentIndex],
+  );
+
+  useEffect(() => {
+    playCurrentMedia();
+  }, [currentIndex, visibleIndices, playCurrentMedia]);
+
+  useEffect(() => {
+    if (!ytReady) return;
+    visibleIndices.forEach((index) => {
+      const item = items[index];
+      if (!item?.isEmbed) return;
+      if (ytPlayerRefs.current.has(index)) return;
+      const container = ytContainerRefs.current.get(index);
+      if (!container) return;
+      const videoId = getYouTubeId(item.videoUrl);
+      if (!videoId || !window.YT?.Player) return;
+      const player = new window.YT.Player(container, {
+        videoId,
+        playerVars: {
+          autoplay: 0,
+          playsinline: 1,
+          mute: 0,
+          rel: 0,
+          modestbranding: 1,
+        },
+        events: {
+          onReady: (event: any) => {
+            if (index === currentIndex) {
+              event.target.playVideo();
+            } else {
+              event.target.pauseVideo();
+            }
+          },
+        },
+      });
+      ytPlayerRefs.current.set(index, player);
+    });
+
+    const keep = new Set(visibleIndices);
+    ytPlayerRefs.current.forEach((player, index) => {
+      if (!keep.has(index)) {
+        player.destroy();
+        ytPlayerRefs.current.delete(index);
+      }
+    });
+  }, [currentIndex, items, visibleIndices, ytReady]);
+
+  useEffect(() => {
+    if (!ytReady) return;
+    ytPlayerRefs.current.forEach((player, index) => {
+      const canPlay = typeof player?.playVideo === "function";
+      const canPause = typeof player?.pauseVideo === "function";
+      if (index === currentIndex) {
+        if (canPlay) {
+          player.playVideo();
+        }
+      } else if (canPause) {
+        player.pauseVideo();
+      }
+    });
+  }, [currentIndex, visibleIndices]);
+
   return (
     <div className="flex h-screen flex-col bg-black text-white">
       <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
@@ -180,27 +329,47 @@ export default function FeedScroller({
               </div>
               <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl">
                 {item.isEmbed ? (
-                  <iframe
+                  <div
+                    ref={(element) => {
+                      if (element) {
+                        ytContainerRefs.current.set(index, element);
+                      } else {
+                        ytContainerRefs.current.delete(index);
+                      }
+                    }}
                     className="h-[60vh] w-full"
-                    src={item.videoUrl}
-                    title={item.title}
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
                   />
                 ) : (
                   <video
+                    ref={(element) => {
+                      if (element) {
+                        videoRefs.current.set(index, element);
+                      } else {
+                        videoRefs.current.delete(index);
+                      }
+                    }}
                     className="h-[60vh] w-full object-cover"
                     src={item.videoUrl}
                     playsInline
                     muted
                     loop
                     controls
+                    autoPlay={index === currentIndex}
                   />
                 )}
                 <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs text-white/70">
                   <span>Swipe for next</span>
                   <span>Tap to like</span>
                 </div>
+                {index === currentIndex && needsUserGesture && (
+                  <button
+                    type="button"
+                    onClick={() => playCurrentMedia(true)}
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 text-sm font-semibold"
+                  >
+                    Tap to play
+                  </button>
+                )}
               </div>
             </section>
           );
