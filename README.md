@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+1. Executive Summary
 
-## Getting Started
+I am building a web-based application that reimagines the "infinite scroll" short-form video experience (similar to TikTok/Instagram Reels). Instead of an opaque algorithm dictating the feed, the user explicitly drives the content algorithm via natural language prompts.
 
-First, run the development server:
+2. Core User Flow
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. Input: The user enters a text prompt describing the content they want to see (e.g., "calisthenics tutorials," "funny cat fails," "explained physics concepts").
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+2. Feed Generation: The system creates a persistent "Channel" or "Session" based on this prompt.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. Consumption: The user enters a vertical, full-screen video player interface and scrolls through content specifically curated or generated for that prompt.
 
-## Learn More
+4. Persistence: This specific prompt session is saved in the database. The user can leave and return later to continue scrolling from where they left off, or view previously watched videos within that specific prompt context.
 
-To learn more about Next.js, take a look at the following resources:
+3. Hybrid Content Sourcing Strategy (The "Backend Brain")
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+When a prompt is received, the backend must aggregate content from three distinct sources using a fallback/priority logic:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
-## Deploy on Vercel
+- Source A: Internal Database (Vector/Tag Match):
+	- Search the existing video database for content with metadata or vector embeddings that match the user's prompt.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Source B: External Aggregation (YouTube/Social APIs):
+	- Use APIs (e.g., YouTube Data API for Shorts) or scraping methods to fetch existing external short-form content matching the topic.
+
+	- These external links are indexed into our database for the user.
+
+
+- Source C: Generative AI (Google Veo 3):
+	- If insufficient content exists, or to provide unique content, the system utilizes Google Veo 3 to generate new video assets on the fly based on the prompt.
+
+	- Note: This should likely happen asynchronously to prevent loading delays.
+
+
+4. Functional Requirements
+
+
+- 
+Frontend:
+
+
+	- Mobile-responsive web app.
+
+	- Vertical Swipe Interface: Smooth snapping scroll (similar to CSS scroll-snap).
+
+	- Prompt Input/Dashboard: A home screen to input new prompts or select from "Saved Searches/History."
+
+	- Video Player: Custom controls, auto-play next, support for both hosted files (GenAI) and embedded players (YouTube).
+
+
+- 
+Backend:
+
+
+	- API Layer: To handle prompt submission and feed pagination.
+
+	- Orchestrator: A service that takes the prompt and delegates tasks to the DB Search, External Scraper, and Veo 3 Generator.
+
+	- Database:
+		- Must store Users.
+
+		- Must store Prompts/Feeds (linked to Users).
+
+		- Must store Videos (metadata, source type, URL, and tags/embeddings).
+
+		- Must store WatchHistory (tracking scroll position and watched status per feed).
+
+
+
+5. Technical Stack Constraints & Preferences
+
+
+- Generative Model: Google Veo 3 (Video generation).
+
+- Database: [Insert your pref, e.g., PostgreSQL with pgvector or MongoDB] for storing prompt history and video metadata.
+
+- Frontend: [Insert your pref, e.g., Next.js/React].
+
+- Backend: [Insert your pref, e.g., Python FastAPI or Node.js] (Python is recommended for easier AI/Scraping integration).
+
+6. Goal for the LLM
+
+Based on this architecture, please assist me in [insert current task, e.g., designing the database schema / writing the backend orchestrator logic / creating the frontend component].
