@@ -78,7 +78,8 @@ export const update = mutation({
       thumbnailUrl: args.thumbnailUrl ?? reel.thumbnailUrl ?? undefined,
       title: args.title ?? reel.title ?? undefined,
       description: args.description ?? reel.description ?? undefined,
-      durationSeconds: args.durationSeconds ?? reel.durationSeconds ?? undefined,
+      durationSeconds:
+        args.durationSeconds ?? reel.durationSeconds ?? undefined,
       metadata: args.metadata ?? reel.metadata ?? undefined,
       updatedAt: Date.now(),
     });
