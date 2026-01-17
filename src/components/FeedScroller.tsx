@@ -62,6 +62,8 @@ export default function FeedScroller({
   const ytContainerRefs = useRef(new Map<number, HTMLDivElement>());
   const ytPlayerRefs = useRef(new Map<number, any>());
   const [ytReady, setYtReady] = useState(false);
+  const [needsUserGesture, setNeedsUserGesture] = useState(false);
+  const userInteractedRef = useRef(false);
 
   const visibleIndices = useMemo(() => {
     return [currentIndex - 1, currentIndex, currentIndex + 1].filter(
@@ -175,21 +177,51 @@ export default function FeedScroller({
     };
   }, []);
 
-  useEffect(() => {
-    videoRefs.current.forEach((video, index) => {
-      if (index !== currentIndex) {
-        video.pause();
+  const playCurrentMedia = useCallback(
+    (fromGesture = false) => {
+      if (fromGesture) {
+        userInteractedRef.current = true;
       }
-    });
+      setNeedsUserGesture(false);
 
-    const currentVideo = videoRefs.current.get(currentIndex);
-    if (currentVideo) {
-      const playPromise = currentVideo.play();
-      if (playPromise?.catch) {
-        playPromise.catch(() => {});
+      videoRefs.current.forEach((video, index) => {
+        if (index !== currentIndex) {
+          video.pause();
+        }
+      });
+
+      const currentVideo = videoRefs.current.get(currentIndex);
+      if (currentVideo) {
+        const playPromise = currentVideo.play();
+        if (playPromise?.catch) {
+          playPromise.catch(() => {
+            if (!userInteractedRef.current) {
+              setNeedsUserGesture(true);
+            }
+          });
+        }
+        return;
       }
-    }
-  }, [currentIndex, visibleIndices]);
+
+      const ytPlayer = ytPlayerRefs.current.get(currentIndex);
+      if (ytPlayer && typeof ytPlayer.playVideo === "function") {
+        ytPlayer.playVideo();
+        if (typeof ytPlayer.getPlayerState === "function") {
+          setTimeout(() => {
+            const state = ytPlayer.getPlayerState();
+            if (state !== 1 && !userInteractedRef.current) {
+              setNeedsUserGesture(true);
+            }
+          }, 200);
+        }
+      }
+    },
+    [currentIndex],
+  );
+
+  useEffect(() => {
+    playCurrentMedia();
+  }, [currentIndex, visibleIndices, playCurrentMedia]);
 
   useEffect(() => {
     if (!ytReady) return;
@@ -231,6 +263,28 @@ export default function FeedScroller({
       }
     });
   }, [currentIndex, items, visibleIndices, ytReady]);
+
+  useEffect(() => {
+    const handleVideoWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.scrollBy({
+        top: e.deltaY,
+        left: e.deltaX,
+        behavior: 'instant'
+      });
+    };
+
+    videoRefs.current.forEach((video) => {
+      video.addEventListener('wheel', handleVideoWheel, { passive: false });
+    });
+
+    return () => {
+      videoRefs.current.forEach((video) => {
+        video.removeEventListener('wheel', handleVideoWheel);
+      });
+    };
+  }, [visibleIndices]);
 
   useEffect(() => {
     if (!ytReady) return;
@@ -329,6 +383,15 @@ export default function FeedScroller({
                   <span>Swipe for next</span>
                   <span>Tap to like</span>
                 </div>
+                {index === currentIndex && needsUserGesture && (
+                  <button
+                    type="button"
+                    onClick={() => playCurrentMedia(true)}
+                    className="absolute inset-0 flex items-center justify-center bg-black/40 text-sm font-semibold"
+                  >
+                    Tap to play
+                  </button>
+                )}
               </div>
             </section>
           );
