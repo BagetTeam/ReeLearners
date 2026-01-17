@@ -98,7 +98,7 @@ export default function PromptHistory() {
       {feeds.slice(0, MAX_HISTORY).map((feed) => (
         <Link
           key={feed._id}
-          href={`/feed?prompt=${encodeURIComponent(feed.prompt)}`}
+          href={`/feed/${encodeURIComponent(feed._id)}`}
           className="rounded-2xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-700 transition hover:border-zinc-300 hover:shadow-sm dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:border-zinc-700"
         >
           <div className="flex items-center justify-between gap-3">
