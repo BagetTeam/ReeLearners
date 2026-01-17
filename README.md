@@ -72,13 +72,8 @@ Backend:
 
 
 - Generative Model: Google Veo 3 (Video generation).
-
-- Database: [Insert your pref, e.g., PostgreSQL with pgvector or MongoDB] for storing prompt history and video metadata.
-
-- Frontend: [Insert your pref, e.g., Next.js/React].
-
-- Backend: [Insert your pref, e.g., Python FastAPI or Node.js] (Python is recommended for easier AI/Scraping integration).
-
-## 6. Goal for the LLM
-
-Based on this architecture, please assist me in [insert current task, e.g., designing the database schema / writing the backend orchestrator logic / creating the frontend component].
+- Frontend: Next.js
+- Database: Convex
+- Authentication: Auth0
+- Backend (for video generation): FastApi
+- Image Generation: Google Nano Banana Pro
