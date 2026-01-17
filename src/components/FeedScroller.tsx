@@ -265,28 +265,6 @@ export default function FeedScroller({
   }, [currentIndex, items, visibleIndices, ytReady]);
 
   useEffect(() => {
-    const handleVideoWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      window.scrollBy({
-        top: e.deltaY,
-        left: e.deltaX,
-        behavior: 'instant'
-      });
-    };
-
-    videoRefs.current.forEach((video) => {
-      video.addEventListener('wheel', handleVideoWheel, { passive: false });
-    });
-
-    return () => {
-      videoRefs.current.forEach((video) => {
-        video.removeEventListener('wheel', handleVideoWheel);
-      });
-    };
-  }, [visibleIndices]);
-
-  useEffect(() => {
     if (!ytReady) return;
     ytPlayerRefs.current.forEach((player, index) => {
       const canPlay = typeof player?.playVideo === "function";
