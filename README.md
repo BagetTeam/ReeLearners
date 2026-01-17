@@ -1,9 +1,8 @@
-1. Executive Summary
+## 1. Executive Summary
 
 I am building a web-based application that reimagines the "infinite scroll" short-form video experience (similar to TikTok/Instagram Reels). Instead of an opaque algorithm dictating the feed, the user explicitly drives the content algorithm via natural language prompts.
 
-2. Core User Flow
-
+## 2. Core User Flow
 
 1. Input: The user enters a text prompt describing the content they want to see (e.g., "calisthenics tutorials," "funny cat fails," "explained physics concepts").
 
@@ -13,7 +12,7 @@ I am building a web-based application that reimagines the "infinite scroll" shor
 
 4. Persistence: This specific prompt session is saved in the database. The user can leave and return later to continue scrolling from where they left off, or view previously watched videos within that specific prompt context.
 
-3. Hybrid Content Sourcing Strategy (The "Backend Brain")
+## 3. Hybrid Content Sourcing Strategy (The "Backend Brain")
 
 When a prompt is received, the backend must aggregate content from three distinct sources using a fallback/priority logic:
 
@@ -34,7 +33,7 @@ When a prompt is received, the backend must aggregate content from three distinc
 	- Note: This should likely happen asynchronously to prevent loading delays.
 
 
-4. Functional Requirements
+## 4. Functional Requirements
 
 
 - 
@@ -69,7 +68,7 @@ Backend:
 
 
 
-5. Technical Stack Constraints & Preferences
+## 5. Technical Stack Constraints & Preferences
 
 
 - Generative Model: Google Veo 3 (Video generation).
@@ -80,6 +79,6 @@ Backend:
 
 - Backend: [Insert your pref, e.g., Python FastAPI or Node.js] (Python is recommended for easier AI/Scraping integration).
 
-6. Goal for the LLM
+## 6. Goal for the LLM
 
 Based on this architecture, please assist me in [insert current task, e.g., designing the database schema / writing the backend orchestrator logic / creating the frontend component].
