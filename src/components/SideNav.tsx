@@ -12,7 +12,9 @@ export default function SideNav() {
   const [userId, setUserId] = useState<Id<"users"> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const upsertUser = useMutation(api.users.upsert);
+  const deleteFeed = useMutation(api.feeds.deleteFeed);
   const initRef = useRef(false);
+  const [deletingId, setDeletingId] = useState<Id<"feeds"> | null>(null);
 
   useEffect(() => {
     if (isLoading || !user || initRef.current) return;
@@ -43,6 +45,27 @@ export default function SideNav() {
     userId ? { userId } : "skip",
   );
 
+  const handleDelete = async (
+    event: React.MouseEvent<HTMLButtonElement>,
+    feedId: Id<"feeds">,
+    promptLabel: string,
+  ) => {
+    event.preventDefault();
+    event.stopPropagation();
+    const shouldDelete = window.confirm(
+      `Delete "${promptLabel}" and all its reels?`,
+    );
+    if (!shouldDelete) {
+      return;
+    }
+    setDeletingId(feedId);
+    try {
+      await deleteFeed({ feedId });
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   return (
     <aside className="flex h-screen w-72 flex-col gap-6 border-r border-zinc-200 bg-white px-5 py-6 dark:border-zinc-800 dark:bg-black">
       <div className="flex items-center justify-between">
@@ -69,6 +92,12 @@ export default function SideNav() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-zinc-500">
           Query History
         </p>
+        <Link
+          href="/"
+          className="rounded-lg border border-zinc-200 px-3 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-zinc-600 transition hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-800 dark:text-zinc-300 dark:hover:border-zinc-700 dark:hover:text-zinc-100"
+        >
+          New prompt
+        </Link>
         <nav className="flex flex-1 flex-col gap-1 overflow-y-auto pr-1">
           {isLoading && (
             <span className="px-3 py-2 text-xs text-zinc-400">
@@ -89,13 +118,37 @@ export default function SideNav() {
             </span>
           )}
           {feeds?.map((feed) => (
-            <Link
+            <div
               key={feed._id}
-              href={`/feed/${encodeURIComponent(feed._id)}`}
-              className="rounded-lg px-3 py-2 text-sm text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-900 dark:hover:text-zinc-50"
+              className="group flex items-center gap-2 rounded-lg px-2 py-1 transition hover:bg-zinc-100 dark:hover:bg-zinc-900"
             >
-              {feed.prompt}
-            </Link>
+              <Link
+                href={`/feed/${encodeURIComponent(feed._id)}`}
+                className="flex-1 rounded-lg px-1 py-1 text-sm text-zinc-700 transition group-hover:text-zinc-900 dark:text-zinc-300 dark:group-hover:text-zinc-50"
+              >
+                {feed.prompt}
+              </Link>
+              <button
+                type="button"
+                aria-label="Delete prompt"
+                onClick={(event) => handleDelete(event, feed._id, feed.prompt)}
+                disabled={deletingId === feed._id}
+                className="opacity-0 transition group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <svg
+                  className="h-4 w-4 text-zinc-400 hover:text-red-500"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  aria-hidden="true"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M7.5 2.5a1 1 0 0 0-1 1V4H4a.75.75 0 0 0 0 1.5h.5v9A2.5 2.5 0 0 0 7 17h6a2.5 2.5 0 0 0 2.5-2.5v-9H16a.75.75 0 0 0 0-1.5h-2.5v-.5a1 1 0 0 0-1-1h-5ZM8 4h4v-.5H8V4Zm2 4a.75.75 0 0 1 .75.75v5a.75.75 0 0 1-1.5 0v-5A.75.75 0 0 1 10 8Zm-3 .75a.75.75 0 0 0-1.5 0v5a.75.75 0 0 0 1.5 0v-5Zm7 0a.75.75 0 0 0-1.5 0v5a.75.75 0 0 0 1.5 0v-5Z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+              </button>
+            </div>
           ))}
         </nav>
       </div>
