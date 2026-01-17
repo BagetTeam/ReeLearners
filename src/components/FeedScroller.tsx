@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type FeedItem = {
   id: string;
@@ -14,14 +14,25 @@ type FeedItem = {
 type FeedScrollerProps = {
   items: FeedItem[];
   promptLabel: string;
+  initialIndex?: number;
+  onIndexChange?: (nextIndex: number) => void;
 };
 
 const TRANSITION_MS = 360;
 const WHEEL_THRESHOLD = 24;
 const WHEEL_IDLE_MS = 220;
 
-export default function FeedScroller({ items, promptLabel }: FeedScrollerProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+export default function FeedScroller({
+  items,
+  promptLabel,
+  initialIndex = 0,
+  onIndexChange,
+}: FeedScrollerProps) {
+  const safeInitialIndex = Math.min(
+    Math.max(initialIndex, 0),
+    Math.max(items.length - 1, 0),
+  );
+  const [currentIndex, setCurrentIndex] = useState(safeInitialIndex);
   const [offset, setOffset] = useState(0);
   const [transitionEnabled, setTransitionEnabled] = useState(true);
   const wheelDeltaRef = useRef(0);
@@ -114,6 +125,10 @@ export default function FeedScroller({ items, promptLabel }: FeedScrollerProps) 
       goPrev();
     }
   };
+
+  useEffect(() => {
+    onIndexChange?.(currentIndex);
+  }, [currentIndex, onIndexChange]);
 
   return (
     <div className="flex h-screen flex-col bg-black text-white">

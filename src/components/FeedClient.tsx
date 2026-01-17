@@ -3,7 +3,7 @@
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
 import { api } from "../../convex/_generated/api";
 import FeedScroller from "@/components/FeedScroller";
@@ -11,37 +11,44 @@ import FeedScroller from "@/components/FeedScroller";
 const FEED_BATCH_SIZE = 8;
 
 type FeedClientProps = {
-  prompt: string;
+  feedIdParam: string;
 };
 
-export default function FeedClient({ prompt }: FeedClientProps) {
+export default function FeedClient({ feedIdParam }: FeedClientProps) {
   const { user, isLoading } = useUser();
   const router = useRouter();
   const [userId, setUserId] = useState<Id<"users"> | null>(null);
-  const [feedId, setFeedId] = useState<Id<"feeds"> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isHydrating, setIsHydrating] = useState(false);
 
   const upsertUser = useMutation(api.users.upsert);
-  const createFeed = useMutation(api.feeds.create);
+  const updateProgress = useMutation(api.feeds.updateProgress);
   const fetchForPrompt = useAction(api.reels.fetchForPrompt);
+  const feedId = useMemo(
+    () => (feedIdParam ? (feedIdParam as Id<"feeds">) : null),
+    [feedIdParam],
+  );
+  const feed = useQuery(
+    api.feeds.getById,
+    feedId ? { feedId } : "skip",
+  );
   const reels = useQuery(
     api.reels.listForFeed,
     feedId ? { feedId } : "skip",
   );
 
   const userInitRef = useRef(false);
-  const feedInitRef = useRef(false);
   const hydrateRef = useRef(false);
+  const progressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
     if (!user) {
-      const returnTo = `/feed?prompt=${encodeURIComponent(prompt)}`;
+      const returnTo = `/feed/${encodeURIComponent(feedIdParam)}`;
       router.replace(`/auth/login?returnTo=${encodeURIComponent(returnTo)}`);
       return;
     }
-  }, [isLoading, prompt, router, user]);
+  }, [feedIdParam, isLoading, router, user]);
 
   useEffect(() => {
     if (userInitRef.current || !user) return;
@@ -70,28 +77,14 @@ export default function FeedClient({ prompt }: FeedClientProps) {
   }, [upsertUser, user]);
 
   useEffect(() => {
-    if (!userId || feedInitRef.current) return;
-    feedInitRef.current = true;
-
-    const run = async () => {
-      try {
-        const id = await createFeed({
-          userId,
-          prompt,
-          topic: prompt,
-          description: `Prompted feed for ${prompt}`,
-        });
-        setFeedId(id);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to create feed");
-      }
-    };
-
-    void run();
-  }, [createFeed, prompt, userId]);
+    if (!feed || !userId) return;
+    if (feed.userId !== userId) {
+      setError("This feed does not belong to your account.");
+    }
+  }, [feed, userId]);
 
   useEffect(() => {
-    if (!feedId || reels === undefined) return;
+    if (!feedId || reels === undefined || !feed) return;
     if (reels.length > 0 || hydrateRef.current) return;
 
     hydrateRef.current = true;
@@ -101,7 +94,7 @@ export default function FeedClient({ prompt }: FeedClientProps) {
       try {
         await fetchForPrompt({
           feedId,
-          prompt,
+          prompt: feed.prompt,
           limit: FEED_BATCH_SIZE,
         });
       } catch (err) {
@@ -114,7 +107,32 @@ export default function FeedClient({ prompt }: FeedClientProps) {
     };
 
     void run();
-  }, [feedId, fetchForPrompt, prompt, reels]);
+  }, [feed, feedId, fetchForPrompt, reels]);
+
+  const handleIndexChange = useCallback(
+    (nextIndex: number) => {
+      if (!feedId || !reels || !reels[nextIndex]) return;
+      if (progressTimerRef.current) {
+        clearTimeout(progressTimerRef.current);
+      }
+      progressTimerRef.current = setTimeout(() => {
+        void updateProgress({
+          feedId,
+          lastSeenIndex: nextIndex,
+          lastSeenReelId: reels[nextIndex]._id,
+        });
+      }, 400);
+    },
+    [feedId, reels, updateProgress],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) {
+        clearTimeout(progressTimerRef.current);
+      }
+    };
+  }, []);
 
   const items = useMemo(() => {
     if (!reels) return [];
@@ -131,12 +149,12 @@ export default function FeedClient({ prompt }: FeedClientProps) {
           id: reel._id,
           title: reel.title ?? "Untitled clip",
           source,
-          description: reel.description ?? prompt,
+          description: reel.description ?? feed?.prompt ?? "Prompt feed",
           videoUrl: reel.videoUrl ?? "",
           isEmbed: reel.videoUrl?.includes("youtube.com/embed") ?? false,
         };
       });
-  }, [prompt, reels]);
+  }, [feed, reels]);
 
   if (error) {
     return (
@@ -161,6 +179,29 @@ export default function FeedClient({ prompt }: FeedClientProps) {
     );
   }
 
+  if (feed === undefined || reels === undefined) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black text-white">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <span className="text-xs uppercase tracking-[0.3em] text-white/60">
+            Loading feed
+          </span>
+          <p className="text-sm text-white/70">Fetching your reels...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (feed === null) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-black text-white">
+        <div className="max-w-md text-center text-sm text-white/70">
+          Feed not found.
+        </div>
+      </div>
+    );
+  }
+
   if (!items.length) {
     return (
       <div className="flex h-screen items-center justify-center bg-black text-white">
@@ -176,5 +217,13 @@ export default function FeedClient({ prompt }: FeedClientProps) {
     );
   }
 
-  return <FeedScroller items={items} promptLabel={prompt} />;
+  return (
+    <FeedScroller
+      key={feedId ?? "feed"}
+      items={items}
+      promptLabel={feed?.prompt ?? "Your prompt"}
+      initialIndex={feed?.lastSeenIndex ?? 0}
+      onIndexChange={handleIndexChange}
+    />
+  );
 }
