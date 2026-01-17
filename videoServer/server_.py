@@ -1,39 +1,55 @@
 import sys
 import os
+import logging
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+from dotenv import load_dotenv
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'realVideos')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'AIVideos')))
-from realVideos import YouTubeShortsSearcher
-from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize FastAPI app
+# Initialize FastAPI app FIRST (before YouTube initialization)
 app = FastAPI(
     title="ReeLearners Video API",
     description="API to serve embedded video links for iframe playback",
     version="1.0.0"
 )
 
-# Add CORS middleware to allow requests from your Next.js frontend
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend URL instead of "*"
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Initialize YouTube Shorts Searcher
-api_key = os.getenv('YOUTUBE_API_KEY')
-if not api_key:
-    raise ValueError("YOUTUBE_API_KEY environment variable not set")
+# Initialize YouTube Searcher lazily (only when needed)
+youtube_searcher = None
 
-youtube_searcher = YouTubeShortsSearcher(api_key)
+def get_youtube_searcher():
+    """Lazy initialization of YouTube Searcher"""
+    global youtube_searcher
+    if youtube_searcher is None:
+        try:
+            from realVideos import YouTubeShortsSearcher
+            api_key = os.getenv('YOUTUBE_API_KEY')
+            if api_key:
+                youtube_searcher = YouTubeShortsSearcher(api_key)
+                logger.info("YouTube Searcher initialized successfully")
+            else:
+                logger.warning("YOUTUBE_API_KEY not set")
+        except Exception as e:
+            logger.error(f"Failed to initialize YouTube Searcher: {e}")
+    return youtube_searcher
 
 
 # Pydantic models for request/response
@@ -71,6 +87,7 @@ class BatchEmbedResponse(BaseModel):
 @app.get("/", tags=["Health"])
 async def root():
     """Health check endpoint"""
+    logger.info("Root endpoint called")
     return {
         "status": "ok",
         "message": "ReeLearners Video API is running",
@@ -80,7 +97,8 @@ async def root():
 
 @app.get("/health", tags=["Health"])
 async def health():
-    """Health check endpoint"""
+    """Health check endpoint for Cloud Run"""
+    logger.info("Health check endpoint called")
     return {"status": "healthy"}
 
 
@@ -99,6 +117,10 @@ async def search_videos(
     Returns:
         List of videos with embedded links
     """
+    searcher = get_youtube_searcher()
+    if not searcher:
+        raise HTTPException(status_code=503, detail="YouTube API not configured. Please set YOUTUBE_API_KEY environment variable.")
+    
     if not query or len(query.strip()) == 0:
         raise HTTPException(status_code=400, detail="Query parameter is required")
     
@@ -106,7 +128,8 @@ async def search_videos(
         raise HTTPException(status_code=400, detail="max_results must be between 1 and 50")
     
     try:
-        videos = youtube_searcher.search_shorts(query, max_results)
+        logger.info(f"Searching for: {query}")
+        videos = searcher.search_shorts(query, max_results)
         if not videos:
             return VideoListResponse(
                 videos=[],
@@ -120,6 +143,7 @@ async def search_videos(
             query=query
         )
     except Exception as e:
+        logger.error(f"Search failed: {e}")
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 
@@ -158,6 +182,7 @@ async def get_embed_link(video_id: str):
             html=iframe_html
         )
     except Exception as e:
+        logger.error(f"Failed to generate embed link: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to generate embed link: {str(e)}")
 
 
@@ -189,9 +214,11 @@ async def batch_get_embed_links(request: BatchEmbedRequest):
 # Run the server
 if __name__ == "__main__":
     import uvicorn
+    port = int(os.getenv('PORT', '8080'))
+    logger.info(f"Starting server on port {port}")
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=8000,
-        reload=True
+        port=port,
+        reload=False  # Disable reload in production
     )
