@@ -29,7 +29,7 @@ type FeedScrollerProps = {
 };
 
 const TRANSITION_MS = 360;
-const WHEEL_THRESHOLD = 24;
+const WHEEL_THRESHOLD = 100;
 const WHEEL_IDLE_MS = 220;
 
 const getYouTubeId = (url: string) => {
