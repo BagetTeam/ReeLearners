@@ -8,6 +8,7 @@ type FeedItem = {
   source: string;
   description: string;
   videoUrl: string;
+  isEmbed?: boolean;
 };
 
 type FeedScrollerProps = {
@@ -128,7 +129,7 @@ export default function FeedScroller({ items, promptLabel }: FeedScrollerProps) 
             Auto-play on
           </span>
           <span className="rounded-full border border-white/20 px-3 py-1">
-            1 of {items.length}
+            {Math.min(currentIndex + 1, items.length)} of {items.length}
           </span>
         </div>
       </div>
@@ -163,14 +164,24 @@ export default function FeedScroller({ items, promptLabel }: FeedScrollerProps) 
                 <p className="text-sm text-white/70">{item.description}</p>
               </div>
               <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl">
-                <video
-                  className="h-[60vh] w-full object-cover"
-                  src={item.videoUrl}
-                  playsInline
-                  muted
-                  loop
-                  controls
-                />
+                {item.isEmbed ? (
+                  <iframe
+                    className="h-[60vh] w-full"
+                    src={item.videoUrl}
+                    title={item.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video
+                    className="h-[60vh] w-full object-cover"
+                    src={item.videoUrl}
+                    playsInline
+                    muted
+                    loop
+                    controls
+                  />
+                )}
                 <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs text-white/70">
                   <span>Swipe for next</span>
                   <span>Tap to like</span>

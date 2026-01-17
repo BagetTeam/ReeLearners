@@ -1,5 +1,6 @@
-import { mutation, query } from "./_generated/server";
+import { action, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { api } from "./_generated/api";
 
 const reelStatus = v.union(
   v.literal("pending"),
@@ -77,7 +78,8 @@ export const update = mutation({
       thumbnailUrl: args.thumbnailUrl ?? reel.thumbnailUrl ?? undefined,
       title: args.title ?? reel.title ?? undefined,
       description: args.description ?? reel.description ?? undefined,
-      durationSeconds: args.durationSeconds ?? reel.durationSeconds ?? undefined,
+      durationSeconds:
+        args.durationSeconds ?? reel.durationSeconds ?? undefined,
       metadata: args.metadata ?? reel.metadata ?? undefined,
       updatedAt: Date.now(),
     });
@@ -114,5 +116,83 @@ export const getById = query({
   args: { reelId: v.id("reels") },
   handler: async (ctx, args) => {
     return ctx.db.get(args.reelId);
+  },
+});
+
+export const fetchForPrompt = action({
+  args: {
+    feedId: v.id("feeds"),
+    prompt: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const existing = await ctx.runQuery(api.reels.listForFeed, {
+      feedId: args.feedId,
+      limit: 1,
+    });
+    if (existing.length > 0) {
+      return { inserted: 0, skipped: true };
+    }
+
+    await ctx.runMutation(api.feeds.updateStatus, {
+      feedId: args.feedId,
+      status: "curating",
+    });
+
+    const baseUrl =
+      process.env.VIDEO_API_URL ??
+      process.env.NEXT_PUBLIC_VIDEO_API_URL ??
+      "http://localhost:8000";
+    const url = new URL("/search", baseUrl);
+    url.searchParams.set("query", args.prompt);
+    url.searchParams.set("max_results", String(args.limit ?? 8));
+
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(`Video search failed: ${response.status} ${detail}`);
+    }
+
+    const payload = (await response.json()) as {
+      videos?: Array<{
+        video_id?: string;
+        title?: string;
+        watch_url?: string;
+        embed_url?: string;
+      }>;
+    };
+
+    const videos = payload.videos ?? [];
+    let inserted = 0;
+
+    const basePosition = Date.now();
+    for (const [index, video] of videos.entries()) {
+      const videoUrl = video.embed_url ?? video.watch_url;
+      if (!videoUrl) {
+        continue;
+      }
+
+      await ctx.runMutation(api.reels.addToFeed, {
+        feedId: args.feedId,
+        sourceType: "external",
+        position: basePosition + index,
+        status: "ready",
+        videoUrl,
+        title: video.title ?? "Untitled clip",
+        description: args.prompt,
+        sourceReference: video.video_id ?? undefined,
+        metadata: {
+          watchUrl: video.watch_url ?? undefined,
+        },
+      });
+      inserted += 1;
+    }
+
+    await ctx.runMutation(api.feeds.updateStatus, {
+      feedId: args.feedId,
+      status: inserted > 0 ? "ready" : "pending",
+    });
+
+    return { inserted, skipped: false };
   },
 });
