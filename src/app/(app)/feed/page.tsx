@@ -1,7 +1,7 @@
 import FeedScroller from "@/components/FeedScroller";
 
 type FeedPageProps = {
-  searchParams?: { prompt?: string };
+  searchParams: Promise<{ prompt?: string }>;
 };
 
 const demoItems = [
@@ -62,8 +62,8 @@ const demoItems = [
   },
 ];
 
-export default function FeedPage({ searchParams }: FeedPageProps) {
-  const prompt = searchParams?.prompt ?? "Your prompt";
+export default async function FeedPage({ searchParams }: FeedPageProps) {
+  const prompt = (await searchParams)?.prompt ?? "Your prompt";
 
   return <FeedScroller items={demoItems} promptLabel={prompt} />;
 }
