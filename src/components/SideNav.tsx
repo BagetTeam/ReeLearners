@@ -74,7 +74,7 @@ export default function SideNav() {
   };
 
   return (
-    <Sidebar collapsible="icon" variant="sidebar">
+    <Sidebar collapsible="offcanvas" variant="sidebar">
       <SidebarHeader className="gap-3">
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2 font-semibold">
