@@ -3,7 +3,7 @@
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
 import { api } from "../../convex/_generated/api";
 import FeedScroller from "@/components/FeedScroller";
@@ -12,9 +12,10 @@ const FEED_BATCH_SIZE = 8;
 
 type FeedClientProps = {
   prompt: string;
+  feedIdParam?: string;
 };
 
-export default function FeedClient({ prompt }: FeedClientProps) {
+export default function FeedClient({ prompt, feedIdParam }: FeedClientProps) {
   const { user, isLoading } = useUser();
   const router = useRouter();
   const [userId, setUserId] = useState<Id<"users"> | null>(null);
@@ -24,15 +25,21 @@ export default function FeedClient({ prompt }: FeedClientProps) {
 
   const upsertUser = useMutation(api.users.upsert);
   const createFeed = useMutation(api.feeds.create);
+  const updateProgress = useMutation(api.feeds.updateProgress);
   const fetchForPrompt = useAction(api.reels.fetchForPrompt);
   const reels = useQuery(
     api.reels.listForFeed,
     feedId ? { feedId } : "skip",
   );
+  const feeds = useQuery(
+    api.feeds.listByUser,
+    userId ? { userId } : "skip",
+  );
 
   const userInitRef = useRef(false);
   const feedInitRef = useRef(false);
   const hydrateRef = useRef(false);
+  const progressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
@@ -71,6 +78,22 @@ export default function FeedClient({ prompt }: FeedClientProps) {
 
   useEffect(() => {
     if (!userId || feedInitRef.current) return;
+    if (!feeds) return;
+
+    const byId =
+      feedIdParam && feeds
+        ? feeds.find((feed) => feed._id === feedIdParam)
+        : undefined;
+    const byPrompt = feeds.find((feed) => feed.prompt === prompt);
+    const existing = byId ?? byPrompt ?? null;
+
+    if (existing) {
+      feedInitRef.current = true;
+      setFeedId(existing._id);
+      return;
+    }
+
+    if (feedInitRef.current) return;
     feedInitRef.current = true;
 
     const run = async () => {
@@ -88,7 +111,7 @@ export default function FeedClient({ prompt }: FeedClientProps) {
     };
 
     void run();
-  }, [createFeed, prompt, userId]);
+  }, [createFeed, feedIdParam, feeds, prompt, userId]);
 
   useEffect(() => {
     if (!feedId || reels === undefined) return;
@@ -115,6 +138,36 @@ export default function FeedClient({ prompt }: FeedClientProps) {
 
     void run();
   }, [feedId, fetchForPrompt, prompt, reels]);
+
+  const handleIndexChange = useCallback(
+    (nextIndex: number) => {
+      if (!feedId || !reels || !reels[nextIndex]) return;
+      if (progressTimerRef.current) {
+        clearTimeout(progressTimerRef.current);
+      }
+      progressTimerRef.current = setTimeout(() => {
+        void updateProgress({
+          feedId,
+          lastSeenIndex: nextIndex,
+          lastSeenReelId: reels[nextIndex]._id,
+        });
+      }, 400);
+    },
+    [feedId, reels, updateProgress],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) {
+        clearTimeout(progressTimerRef.current);
+      }
+    };
+  }, []);
+
+  const activeFeed = useMemo(() => {
+    if (!feeds || !feedId) return null;
+    return feeds.find((feed) => feed._id === feedId) ?? null;
+  }, [feedId, feeds]);
 
   const items = useMemo(() => {
     if (!reels) return [];
@@ -176,5 +229,13 @@ export default function FeedClient({ prompt }: FeedClientProps) {
     );
   }
 
-  return <FeedScroller items={items} promptLabel={prompt} />;
+  return (
+    <FeedScroller
+      key={feedId ?? "feed"}
+      items={items}
+      promptLabel={prompt}
+      initialIndex={activeFeed?.lastSeenIndex ?? 0}
+      onIndexChange={handleIndexChange}
+    />
+  );
 }

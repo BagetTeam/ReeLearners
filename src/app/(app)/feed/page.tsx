@@ -1,11 +1,13 @@
 import FeedClient from "@/components/FeedClient";
 
 type FeedPageProps = {
-  searchParams: Promise<{ prompt?: string }>;
+  searchParams: Promise<{ prompt?: string; feedId?: string }>;
 };
 
 export default async function FeedPage({ searchParams }: FeedPageProps) {
-  const prompt = (await searchParams)?.prompt ?? "Your prompt";
+  const params = await searchParams;
+  const prompt = params?.prompt ?? "Your prompt";
+  const feedId = params?.feedId;
 
-  return <FeedClient prompt={prompt} />;
+  return <FeedClient prompt={prompt} feedIdParam={feedId} />;
 }
