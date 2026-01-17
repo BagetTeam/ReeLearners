@@ -21,16 +21,16 @@ When a prompt is received, the backend must aggregate content from three distinc
 	- Search the existing video database for content with metadata or vector embeddings that match the user's prompt.
 
 
-- Source B: External Aggregation (YouTube/Social APIs):
-	- Use APIs (e.g., YouTube Data API for Shorts) or scraping methods to fetch existing external short-form content matching the topic.
-
-	- These external links are indexed into our database for the user.
-
-
-- Source C: Generative AI (Google Veo 3):
+- Source B: Generative AI (Google Veo 3):
 	- If insufficient content exists, or to provide unique content, the system utilizes Google Veo 3 to generate new video assets on the fly based on the prompt.
 
 	- Note: This should likely happen asynchronously to prevent loading delays.
+
+
+- Source C: External Aggregation (YouTube/Social APIs):
+	- Use APIs (e.g., YouTube Data API for Shorts) or scraping methods to fetch existing external short-form content matching the topic.
+
+	- These external links are indexed into our database for the user.
 
 
 ## 4. Functional Requirements
