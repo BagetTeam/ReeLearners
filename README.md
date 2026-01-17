@@ -77,3 +77,7 @@ Backend:
 - Authentication: Auth0
 - Backend (for video generation): FastApi
 - Image Generation: Google Nano Banana Pro
+
+## 6. Convex Data Model
+
+Convex currently persists users, feeds/prompts, and reels only—video binaries stay with the FastAPI service. See `docs/convex.md` for the table definitions plus the available queries/mutations that the frontend and FastAPI backend can call.
