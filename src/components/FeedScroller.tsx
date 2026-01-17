@@ -131,19 +131,19 @@ export default function FeedScroller({
   }, [currentIndex, onIndexChange]);
 
   return (
-    <div className="flex h-screen flex-col bg-black text-white">
-      <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+    <div className="flex h-screen flex-col bg-white text-zinc-900">
+      <div className="flex items-center justify-between border-b border-zinc-200 px-6 py-4">
         <div className="flex flex-col gap-1">
-          <p className="text-xs uppercase tracking-[0.2em] text-white/60">
+          <p className="text-xs uppercase tracking-[0.2em] text-zinc-500">
             Channel
           </p>
           <h1 className="text-lg font-semibold">{promptLabel}</h1>
         </div>
-        <div className="flex items-center gap-3 text-xs text-white/60">
-          <span className="rounded-full border border-white/20 px-3 py-1">
+        <div className="flex items-center gap-3 text-xs text-zinc-500">
+          <span className="rounded-full border border-zinc-200 px-3 py-1">
             Auto-play on
           </span>
-          <span className="rounded-full border border-white/20 px-3 py-1">
+          <span className="rounded-full border border-zinc-200 px-3 py-1">
             {Math.min(currentIndex + 1, items.length)} of {items.length}
           </span>
         </div>
@@ -172,13 +172,13 @@ export default function FeedScroller({
               }}
             >
               <div className="flex w-full max-w-sm flex-col gap-3 text-center">
-                <p className="text-xs uppercase tracking-[0.3em] text-white/50">
+                <p className="text-xs uppercase tracking-[0.3em] text-zinc-500">
                   {item.source}
                 </p>
                 <h2 className="text-2xl font-semibold">{item.title}</h2>
-                <p className="text-sm text-white/70">{item.description}</p>
+                <p className="text-sm text-zinc-600">{item.description}</p>
               </div>
-              <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl">
+              <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-zinc-200 bg-white shadow-2xl">
                 {item.isEmbed ? (
                   <iframe
                     className="h-[60vh] w-full"
@@ -197,7 +197,7 @@ export default function FeedScroller({
                     controls
                   />
                 )}
-                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs text-white/70">
+                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs text-zinc-600">
                   <span>Swipe for next</span>
                   <span>Tap to like</span>
                 </div>

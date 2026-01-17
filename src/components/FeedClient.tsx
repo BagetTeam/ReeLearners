@@ -158,8 +158,8 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
 
   if (error) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black text-white">
-        <div className="max-w-md text-center text-sm text-white/70">
+      <div className="flex h-screen items-center justify-center bg-white text-zinc-900">
+        <div className="max-w-md text-center text-sm text-zinc-600">
           {error}
         </div>
       </div>
@@ -168,12 +168,12 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
 
   if (isLoading || !user) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black text-white">
+      <div className="flex h-screen items-center justify-center bg-white text-zinc-900">
         <div className="flex flex-col items-center gap-3 text-center">
-          <span className="text-xs uppercase tracking-[0.3em] text-white/60">
+          <span className="text-xs uppercase tracking-[0.3em] text-zinc-500">
             Authenticating
           </span>
-          <p className="text-sm text-white/70">Checking your session...</p>
+          <p className="text-sm text-zinc-600">Checking your session...</p>
         </div>
       </div>
     );
@@ -181,12 +181,12 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
 
   if (feed === undefined || reels === undefined) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black text-white">
+      <div className="flex h-screen items-center justify-center bg-white text-zinc-900">
         <div className="flex flex-col items-center gap-3 text-center">
-          <span className="text-xs uppercase tracking-[0.3em] text-white/60">
+          <span className="text-xs uppercase tracking-[0.3em] text-zinc-500">
             Loading feed
           </span>
-          <p className="text-sm text-white/70">Fetching your reels...</p>
+          <p className="text-sm text-zinc-600">Fetching your reels...</p>
         </div>
       </div>
     );
@@ -194,8 +194,8 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
 
   if (feed === null) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black text-white">
-        <div className="max-w-md text-center text-sm text-white/70">
+      <div className="flex h-screen items-center justify-center bg-white text-zinc-900">
+        <div className="max-w-md text-center text-sm text-zinc-600">
           Feed not found.
         </div>
       </div>
@@ -204,12 +204,12 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
 
   if (!items.length) {
     return (
-      <div className="flex h-screen items-center justify-center bg-black text-white">
+      <div className="flex h-screen items-center justify-center bg-white text-zinc-900">
         <div className="flex flex-col items-center gap-3 text-center">
-          <span className="text-xs uppercase tracking-[0.3em] text-white/60">
+          <span className="text-xs uppercase tracking-[0.3em] text-zinc-500">
             Building your feed
           </span>
-          <p className="text-sm text-white/70">
+          <p className="text-sm text-zinc-600">
             {isHydrating ? "Fetching videos..." : "Warming up the feed..."}
           </p>
         </div>
