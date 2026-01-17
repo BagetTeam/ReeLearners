@@ -6,6 +6,13 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { Id } from "../../convex/_generated/dataModel";
 import { api } from "../../convex/_generated/api";
+import ConfirmDialog from "@/components/ConfirmDialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export default function SideNav() {
   const { user, isLoading } = useUser();
@@ -45,19 +52,7 @@ export default function SideNav() {
     userId ? { userId } : "skip",
   );
 
-  const handleDelete = async (
-    event: React.MouseEvent<HTMLButtonElement>,
-    feedId: Id<"feeds">,
-    promptLabel: string,
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
-    const shouldDelete = window.confirm(
-      `Delete "${promptLabel}" and all its reels?`,
-    );
-    if (!shouldDelete) {
-      return;
-    }
+  const handleDelete = async (feedId: Id<"feeds">) => {
     setDeletingId(feedId);
     try {
       await deleteFeed({ feedId });
@@ -128,26 +123,41 @@ export default function SideNav() {
               >
                 {feed.prompt}
               </Link>
-              <button
-                type="button"
-                aria-label="Delete prompt"
-                onClick={(event) => handleDelete(event, feed._id, feed.prompt)}
-                disabled={deletingId === feed._id}
-                className="opacity-0 transition group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <svg
-                  className="h-4 w-4 text-zinc-400 hover:text-red-500"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  aria-hidden="true"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M7.5 2.5a1 1 0 0 0-1 1V4H4a.75.75 0 0 0 0 1.5h.5v9A2.5 2.5 0 0 0 7 17h6a2.5 2.5 0 0 0 2.5-2.5v-9H16a.75.75 0 0 0 0-1.5h-2.5v-.5a1 1 0 0 0-1-1h-5ZM8 4h4v-.5H8V4Zm2 4a.75.75 0 0 1 .75.75v5a.75.75 0 0 1-1.5 0v-5A.75.75 0 0 1 10 8Zm-3 .75a.75.75 0 0 0-1.5 0v5a.75.75 0 0 0 1.5 0v-5Zm7 0a.75.75 0 0 0-1.5 0v5a.75.75 0 0 0 1.5 0v-5Z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </button>
+              <ConfirmDialog
+                title="Delete prompt?"
+                description={`Delete "${feed.prompt}" and all its reels? This cannot be undone.`}
+                confirmLabel="Delete"
+                isLoading={deletingId === feed._id}
+                onConfirm={() => handleDelete(feed._id)}
+                trigger={
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label="Delete prompt"
+                          disabled={deletingId === feed._id}
+                          className="opacity-0 transition group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                        >
+                          <svg
+                            className="h-4 w-4 text-zinc-400 hover:text-red-500"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                            aria-hidden="true"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M7.5 2.5a1 1 0 0 0-1 1V4H4a.75.75 0 0 0 0 1.5h.5v9A2.5 2.5 0 0 0 7 17h6a2.5 2.5 0 0 0 2.5-2.5v-9H16a.75.75 0 0 0 0-1.5h-2.5v-.5a1 1 0 0 0-1-1h-5ZM8 4h4v-.5H8V4Zm2 4a.75.75 0 0 1 .75.75v5a.75.75 0 0 1-1.5 0v-5A.75.75 0 0 1 10 8Zm-3 .75a.75.75 0 0 0-1.5 0v5a.75.75 0 0 0 1.5 0v-5Zm7 0a.75.75 0 0 0-1.5 0v5a.75.75 0 0 0 1.5 0v-5Z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">Delete</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                }
+              />
             </div>
           ))}
         </nav>
