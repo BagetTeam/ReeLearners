@@ -8,7 +8,7 @@ import SidebarFloatingTrigger from "@/components/SidebarFloatingTrigger";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SidebarProvider className="bg-zinc-50 text-zinc-900 dark:bg-black dark:text-zinc-50">
+    <SidebarProvider className="bg-background text-foreground">
       <SideNav />
       <SidebarRail />
       <SidebarFloatingTrigger />
