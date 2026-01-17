@@ -22,13 +22,13 @@ When a prompt is received, the backend must aggregate content from three distinc
 
 
 - Source B: Generative AI (Google Veo 3):
-	- If insufficient content exists, or to provide unique content, the system utilizes Google Veo 3 to generate new video assets on the fly based on the prompt.
+	- The system utilizes Google Veo 3 to generate new video assets on the fly based on the prompt. It should prompt veo 3 in the background, and wait for it to generate before playing the video to the user.
 
-	- Note: This should likely happen asynchronously to prevent loading delays.
+	- Note: This should likely happen asynchronously to prevent loading delays. It will also most likely be making multiple requests at the same time to generate enough content for the user.
 
 
 - Source C: External Aggregation (YouTube/Social APIs):
-	- Use APIs (e.g., YouTube Data API for Shorts) or scraping methods to fetch existing external short-form content matching the topic.
+	- While the Generative AI content is getting generated, use APIs (e.g., YouTube Data API for Shorts) or scraping methods to fetch existing external short-form content matching the topic.
 
 	- These external links are indexed into our database for the user.
 
