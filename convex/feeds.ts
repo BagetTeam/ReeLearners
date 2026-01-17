@@ -117,3 +117,24 @@ export const getById = query({
     return ctx.db.get(args.feedId);
   },
 });
+
+export const deleteFeed = mutation({
+  args: { feedId: v.id("feeds") },
+  handler: async (ctx, args) => {
+    const feed = await ctx.db.get(args.feedId);
+    if (!feed) {
+      throw new Error("Feed not found");
+    }
+
+    const reels = await ctx.db
+      .query("reels")
+      .withIndex("by_feedId", (q) => q.eq("feedId", args.feedId))
+      .collect();
+
+    for (const reel of reels) {
+      await ctx.db.delete(reel._id);
+    }
+
+    await ctx.db.delete(args.feedId);
+  },
+});
