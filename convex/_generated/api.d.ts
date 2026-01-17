@@ -8,13 +8,21 @@
  * @module
  */
 
+import type * as feeds from "../feeds.js";
+import type * as reels from "../reels.js";
+import type * as users from "../users.js";
+
 import type {
   ApiFromModules,
   FilterApi,
   FunctionReference,
 } from "convex/server";
 
-declare const fullApi: ApiFromModules<{}>;
+declare const fullApi: ApiFromModules<{
+  feeds: typeof feeds;
+  reels: typeof reels;
+  users: typeof users;
+}>;
 
 /**
  * A utility for referencing Convex functions in your app's public API.
