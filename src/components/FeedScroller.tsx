@@ -117,7 +117,10 @@ export default function FeedScroller({
         clearTimeout(wheelIdleTimerRef.current);
       }
       wheelDeltaRef.current += event.deltaY;
-      if (!wheelTriggeredRef.current && Math.abs(wheelDeltaRef.current) >= WHEEL_THRESHOLD) {
+      if (
+        !wheelTriggeredRef.current &&
+        Math.abs(wheelDeltaRef.current) >= WHEEL_THRESHOLD
+      ) {
         wheelTriggeredRef.current = true;
         if (wheelDeltaRef.current > 0) {
           goNext();
@@ -335,8 +338,10 @@ export default function FeedScroller({
                 <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                   {item.source}
                 </p>
-                <h2 className="text-2xl font-semibold">{item.title}</h2>
-                <p className="text-sm text-muted-foreground">{item.description}</p>
+                <h2 className="text-base font-semibold">{item.title}</h2>
+                <p className="text-sm text-muted-foreground">
+                  {item.description}
+                </p>
               </div>
               <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl border-(--muted)">
                 {item.isEmbed ? (
