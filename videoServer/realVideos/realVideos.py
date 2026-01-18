@@ -155,23 +155,39 @@ You: ["beginner workout", "home fitness", "exercise tutorial"]"""
             
             shorts = []
             for video in videos_response.get('items', []):
-                duration = video['contentDetails']['duration']
-                duration_seconds = self._parse_duration(duration)
-                
-                # Only include videos 60 seconds or less (actual Shorts)
-                if duration_seconds <= 60:
-                    video_id = video['id']
-                    shorts.append({
-                        'video_id': video_id,
-                        'title': video['snippet']['title'],
-                        'watch_url': f"https://www.youtube.com/shorts/{video_id}",
-                        'embed_url': f"https://www.youtube.com/embed/{video_id}",
-                    })
+                try:
+                    # Safely extract video details with fallbacks
+                    video_id = video.get('id')
+                    if not video_id:
+                        continue
+                    
+                    duration = video.get('contentDetails', {}).get('duration')
+                    if not duration:
+                        continue
+                    
+                    duration_seconds = self._parse_duration(duration)
+                    
+                    # Only include videos 60 seconds or less (actual Shorts)
+                    if duration_seconds <= 60:
+                        title = video.get('snippet', {}).get('title', 'Untitled')
+                        shorts.append({
+                            'video_id': video_id,
+                            'title': title,
+                            'watch_url': f"https://www.youtube.com/shorts/{video_id}",
+                            'embed_url': f"https://www.youtube.com/embed/{video_id}",
+                        })
+                except (KeyError, TypeError) as e:
+                    # Skip malformed video entries
+                    print(f"[Warning] Skipping malformed video entry: {e}")
+                    continue
             
             return shorts
             
         except HttpError as e:
             print(f"An HTTP error occurred for query '{query}': {e}")
+            return []
+        except Exception as e:
+            print(f"An unexpected error occurred for query '{query}': {e}")
             return []
     
     def search_shorts(self, prompt: str, max_results: int = 50, optimize_prompt: bool = True, num_topics: int = 5) -> List[Dict]:
@@ -187,42 +203,50 @@ You: ["beginner workout", "home fitness", "exercise tutorial"]"""
         Returns:
             List of dictionaries with video_id, title, and playback URLs (mixed from all topics)
         """
-        # Generate multiple search topics if Gemini is enabled
-        if optimize_prompt and self.gemini_enabled:
-            search_topics = self._generate_search_topics(prompt, num_topics)
-        else:
-            search_topics = [prompt]
-        
-        # Calculate results per topic (add buffer for deduplication)
-        results_per_topic = max(1, (max_results // len(search_topics)) + 3)
-        
-        # Search each topic
-        all_results = []
-        seen_video_ids = set()  # Track duplicates across topics
-        
-        print(f"\n[Search] Searching {len(search_topics)} topics, ~{results_per_topic} results each...")
-        
-        for topic in search_topics:
-            print(f"[Search] Topic: '{topic}'")
-            topic_results = self._search_single_topic(topic, results_per_topic)
+        try:
+            # Generate multiple search topics if Gemini is enabled
+            if optimize_prompt and self.gemini_enabled:
+                search_topics = self._generate_search_topics(prompt, num_topics)
+            else:
+                search_topics = [prompt]
             
-            # Filter out duplicates
-            for video in topic_results:
-                if video['video_id'] not in seen_video_ids:
-                    all_results.append(video)
-                    seen_video_ids.add(video['video_id'])
+            if not search_topics:
+                print("[Search] No search topics generated")
+                return []
             
-            print(f"[Search] Found {len(topic_results)} shorts ({len(all_results)} unique total)")
-        
-        # Shuffle to mix results from different topics
-        random.shuffle(all_results)
-        
-        # Limit to max_results
-        final_results = all_results[:max_results]
-        
-        print(f"\n[Search] Returning {len(final_results)} mixed results\n")
-        
-        return final_results
+            # Calculate results per topic (add buffer for deduplication)
+            results_per_topic = max(1, (max_results // len(search_topics)) + 3)
+            
+            # Search each topic
+            all_results = []
+            seen_video_ids = set()  # Track duplicates across topics
+            
+            print(f"\n[Search] Searching {len(search_topics)} topics, ~{results_per_topic} results each...")
+            
+            for topic in search_topics:
+                print(f"[Search] Topic: '{topic}'")
+                topic_results = self._search_single_topic(topic, results_per_topic)
+                
+                # Filter out duplicates
+                for video in topic_results:
+                    if video['video_id'] not in seen_video_ids:
+                        all_results.append(video)
+                        seen_video_ids.add(video['video_id'])
+                
+                print(f"[Search] Found {len(topic_results)} shorts ({len(all_results)} unique total)")
+            
+            # Shuffle to mix results from different topics
+            random.shuffle(all_results)
+            
+            # Limit to max_results
+            final_results = all_results[:max_results]
+            
+            print(f"\n[Search] Returning {len(final_results)} mixed results\n")
+            
+            return final_results
+        except Exception as e:
+            print(f"[Search] Error during search: {e}")
+            return []
     
     def _parse_duration(self, duration: str) -> int:
         """Parse ISO 8601 duration format to seconds."""
