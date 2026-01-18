@@ -26,9 +26,9 @@ export default function TikTokPlayer({
     return <div className="h-[60vh] w-full bg-black/20" />;
   }
 
-  const baseEmbedUrl = url.includes("tiktok.com/embed")
+  const baseEmbedUrl = url.includes("tiktok.com/player")
     ? url
-    : `https://www.tiktok.com/embed/v2/${videoId}`;
+    : `https://www.tiktok.com/player/v1/${videoId}`;
   const autoplay = isActive ? "1" : "0";
   const muted = canPlayWithSound ? "0" : "1";
   const embedUrl = (() => {

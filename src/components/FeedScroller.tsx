@@ -41,7 +41,8 @@ const getYouTubeId = (url: string) => {
   return match?.[1] ?? null;
 };
 
-const isTikTokEmbed = (url: string) => url.includes("tiktok.com/embed");
+const isTikTokEmbed = (url: string) =>
+  url.includes("tiktok.com/embed") || url.includes("tiktok.com/player");
 const isTikTokVideoUrl = (url: string) =>
   url.includes("tiktok") && !url.includes("youtube");
 
