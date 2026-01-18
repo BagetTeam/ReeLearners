@@ -4,80 +4,68 @@ import re
 from typing import Dict, List, Optional
 
 import requests
+from apify_client import ApifyClient
 
 logger = logging.getLogger(__name__)
 
 
 class TikTokVideoSearcher:
     """
-    TikTok Research API client for keyword-based video searches.
+    TikTok Scraper (Apify) client for hashtag-based video searches.
     """
 
-    def __init__(self, access_token: str, base_url: str = "https://open.tiktokapis.com"):
-        self.access_token = access_token
-        self.base_url = base_url.rstrip("/")
+    def __init__(self, apify_token: str, actor_id: str = "clockworks/tiktok-scraper"):
+        self.client = ApifyClient(apify_token)
+        self.actor_id = actor_id
 
     def search_videos(self, query: str, max_results: int = 25) -> List[Dict]:
-        if not query:
-            return []
+        tags = [
+            re.sub(r"[^0-9A-Za-z_]", "", token)
+            for token in re.split(r"\s+", query or "")
+            if token.strip()
+        ]
+        tags = [tag for tag in tags if tag]
+        if not tags:
+            tags = ["fyp"]
 
-        today = datetime.date.today()
-        end_date = today.strftime("%Y%m%d")
-        start_date = (today - datetime.timedelta(days=30)).strftime("%Y%m%d")
-
-        keywords = [token for token in re.split(r"\s+", query) if token]
-        if not keywords:
-            keywords = [query]
-
-        payload = {
-            "query": {
-                "and": [
-                    {
-                        "operation": "IN",
-                        "field_name": "keyword",
-                        "field_values": keywords,
-                    }
-                ]
-            },
-            "start_date": start_date,
-            "end_date": end_date,
-            "max_count": max_results,
+        run_input = {
+            "commentsPerPost": 0,
+            "excludePinnedPosts": False,
+            "hashtags": tags,
+            "maxFollowersPerProfile": 0,
+            "maxFollowingPerProfile": 0,
+            "maxRepliesPerComment": 0,
+            "proxyCountryCode": "None",
+            "resultsPerPage": max_results,
+            "scrapeRelatedVideos": False,
+            "shouldDownloadAvatars": False,
+            "shouldDownloadCovers": False,
+            "shouldDownloadMusicCovers": False,
+            "shouldDownloadSlideshowImages": False,
+            "shouldDownloadSubtitles": False,
+            "shouldDownloadVideos": False,
         }
 
-        url = f"{self.base_url}/v2/research/video/query/"
-        headers = {
-            "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json",
-        }
+        run = self.client.actor(self.actor_id).call(run_input=run_input)
+        dataset_items = self.client.dataset(run["defaultDatasetId"]).list_items()
+        items = dataset_items.items or []
 
-        response = requests.post(url, json=payload, headers=headers, timeout=20)
-        response.raise_for_status()
-
-        data = response.json()
-        videos = data.get("data", {}).get("videos") or data.get("videos") or []
         results: List[Dict] = []
-
-        for video in videos:
-            video_id = video.get("video_id") or video.get("id")
-            if not video_id:
+        for item in items:
+            web_url = item.get("webVideoUrl")
+            if not web_url:
                 continue
-
-            title = (
-                video.get("video_description")
-                or video.get("title")
-                or "Untitled TikTok"
+            match = re.search(r"/video/(\d+)", web_url)
+            video_id = match.group(1) if match else None
+            embed_url = (
+                f"https://www.tiktok.com/embed/v2/{video_id}" if video_id else web_url
             )
-            watch_url = video.get("share_url") or video.get("video_url")
-            if not watch_url:
-                watch_url = f"https://www.tiktok.com/@tiktok/video/{video_id}"
-
-            embed_url = video.get("embed_url") or f"https://www.tiktok.com/embed/v2/{video_id}"
-
+            title = item.get("text") or "TikTok clip"
             results.append(
                 {
-                    "video_id": video_id,
+                    "video_id": video_id or web_url,
                     "title": title,
-                    "watch_url": watch_url,
+                    "watch_url": web_url,
                     "embed_url": embed_url,
                     "source": "tiktok",
                 }

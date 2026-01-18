@@ -1,7 +1,6 @@
 import { action, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
-import { ApifyClient } from "apify-client";
 
 const reelStatus = v.union(
   v.literal("pending"),
@@ -142,6 +141,7 @@ export const fetchForPrompt = action({
     const url = new URL("/search", baseUrl);
     url.searchParams.set("query", args.prompt);
     url.searchParams.set("max_results", String(args.limit ?? 8));
+    url.searchParams.set("sources", "tiktok");
 
     const youtubeResponse = await fetch(url.toString());
     if (!youtubeResponse.ok) {
@@ -185,77 +185,7 @@ export const fetchForPrompt = action({
       inserted += 1;
     }
 
-    const apifyToken = process.env.APIFY_TOKEN;
-    const apifyActor =
-      process.env.APIFY_TIKTOK_ACTOR_ID ?? "clockworks/tiktok-scraper";
-
-    if (apifyToken) {
-      try {
-        const tags = args.prompt
-          .split(/\s+/)
-          .map((word) => word.replace(/[^a-zA-Z0-9_]/g, ""))
-          .filter(Boolean)
-          .slice(0, 3);
-
-        const apifyInput = {
-          commentsPerPost: 0,
-          excludePinnedPosts: false,
-          hashtags: tags.length ? tags : ["fyp"],
-          maxFollowersPerProfile: 0,
-          maxFollowingPerProfile: 0,
-          maxRepliesPerComment: 0,
-          proxyCountryCode: "None",
-          resultsPerPage: args.limit ?? 5,
-          scrapeRelatedVideos: false,
-          shouldDownloadAvatars: false,
-          shouldDownloadCovers: false,
-          shouldDownloadMusicCovers: false,
-          shouldDownloadSlideshowImages: false,
-          shouldDownloadSubtitles: false,
-          shouldDownloadVideos: false,
-        };
-
-        const client = new ApifyClient({ token: apifyToken });
-        const run = await client.actor(apifyActor).call(apifyInput);
-        const dataset = await client.dataset(run.defaultDatasetId).listItems();
-        const apifyItems = dataset.items as Array<{
-          text?: string;
-          webVideoUrl?: string;
-          "authorMeta.name"?: string;
-          playCount?: number;
-        }>;
-
-        for (const [index, item] of apifyItems.entries()) {
-          const webUrl = item.webVideoUrl;
-          if (!webUrl) continue;
-          const match = webUrl.match(/\/video\/(\d+)/);
-          const videoId = match?.[1];
-          const embedUrl = videoId
-            ? `https://www.tiktok.com/embed/v2/${videoId}`
-            : webUrl;
-
-          await ctx.runMutation(api.reels.addToFeed, {
-            feedId: args.feedId,
-            sourceType: "external",
-            position: basePosition + youtubeVideos.length + index,
-            status: "ready",
-            videoUrl: embedUrl,
-            title: item.text ?? "TikTok clip",
-            description: args.prompt,
-            sourceReference: videoId ? `tiktok:${videoId}` : undefined,
-            metadata: {
-              watchUrl: webUrl,
-              provider: "tiktok",
-              author: item["authorMeta.name"] ?? undefined,
-              playCount: item.playCount ?? undefined,
-            },
-          });
-          inserted += 1;
-        }
-      } catch (error) {
-        console.error("TikTok fetch failed", error);
-      }
-    }
+    // TikTok fetch happens inside the video server (Apify-powered).
 
     await ctx.runMutation(api.feeds.updateStatus, {
       feedId: args.feedId,
