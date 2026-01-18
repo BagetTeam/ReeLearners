@@ -141,7 +141,7 @@ export const fetchForPrompt = action({
     const url = new URL("/search", baseUrl);
     url.searchParams.set("query", args.prompt);
     url.searchParams.set("max_results", String(args.limit ?? 8));
-    url.searchParams.set("sources", "tiktok");
+    url.searchParams.set("sources", "youtube,tiktok");
 
     const youtubeResponse = await fetch(url.toString());
     if (!youtubeResponse.ok) {

@@ -194,11 +194,11 @@ async def search_videos(
 
     requested_sources = [
         item.strip().lower()
-        for item in (sources.split(",") if sources else ["tiktok"])
+        for item in (sources.split(",") if sources else ["youtube", "tiktok"])
         if item.strip()
     ]
     if not requested_sources:
-        requested_sources = ["tiktok"]
+        requested_sources = ["youtube", "tiktok"]
 
     if not query or len(query.strip()) == 0:
         raise HTTPException(status_code=400, detail="Query parameter is required")
@@ -216,22 +216,21 @@ async def search_videos(
         per_source_limit = max(1, max_results // max(1, len(requested_sources)))
         videos = []
 
-        # YouTube fetching disabled for TikTok-only debugging.
-        # if "youtube" in requested_sources:
-        #     searcher = get_youtube_searcher()
-        #     if not searcher:
-        #         raise HTTPException(
-        #             status_code=503,
-        #             detail=(
-        #                 "YouTube API not configured. Please set YOUTUBE_API_KEY "
-        #                 "environment variable."
-        #             ),
-        #         )
-        #     videos.extend(
-        #         searcher.search_shorts(
-        #             query, per_source_limit, optimize_prompt=optimize
-        #         )
-        #     )
+        if "youtube" in requested_sources:
+            searcher = get_youtube_searcher()
+            if not searcher:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        "YouTube API not configured. Please set YOUTUBE_API_KEY "
+                        "environment variable."
+                    ),
+                )
+            videos.extend(
+                searcher.search_shorts(
+                    query, per_source_limit, optimize_prompt=optimize
+                )
+            )
 
         if "tiktok" in requested_sources:
             searcher = get_tiktok_searcher()
