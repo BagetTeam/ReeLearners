@@ -19,6 +19,45 @@ class TikTokVideoSearcher:
         self.actor_id = actor_id
 
     def search_videos(self, query: str, max_results: int = 25) -> List[Dict]:
+        def _extract_video_url(item: Dict) -> Optional[str]:
+            candidates: List[Optional[str]] = [
+                item.get("videoUrl"),
+                item.get("videoUrlNoWaterMark"),
+                item.get("video_url"),
+                item.get("downloadAddr"),
+                item.get("videoDownloadAddress"),
+            ]
+
+            video = item.get("video")
+            if isinstance(video, dict):
+                candidates.extend(
+                    [
+                        video.get("downloadAddr"),
+                        video.get("playAddr"),
+                        video.get("playAddrH264"),
+                        video.get("playAddrBytevc1"),
+                    ]
+                )
+
+                for key in ("playAddr", "downloadAddr"):
+                    nested = video.get(key)
+                    if isinstance(nested, dict):
+                        url_list = nested.get("urlList") or nested.get("url_list")
+                        if isinstance(url_list, list):
+                            candidates.extend(url_list)
+                        direct_url = nested.get("url") or nested.get("uri")
+                        if isinstance(direct_url, str):
+                            candidates.append(direct_url)
+
+            for value in candidates:
+                if isinstance(value, list):
+                    for entry in value:
+                        if isinstance(entry, str) and entry:
+                            return entry
+                if isinstance(value, str) and value:
+                    return value
+            return None
+
         tags = [
             re.sub(r"[^0-9A-Za-z_]", "", token)
             for token in re.split(r"\s+", query or "")
@@ -60,6 +99,7 @@ class TikTokVideoSearcher:
             embed_url = (
                 f"https://www.tiktok.com/embed/v2/{video_id}" if video_id else web_url
             )
+            video_url = _extract_video_url(item)
             title = item.get("text") or "TikTok clip"
             results.append(
                 {
@@ -67,6 +107,7 @@ class TikTokVideoSearcher:
                     "title": title,
                     "watch_url": web_url,
                     "embed_url": embed_url,
+                    "video_url": video_url,
                     "source": "tiktok",
                 }
             )

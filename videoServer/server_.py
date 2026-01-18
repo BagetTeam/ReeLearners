@@ -123,6 +123,7 @@ class VideoResponse(BaseModel):
     title: str
     watch_url: str
     embed_url: str
+    video_url: Optional[str] = None
     source: Optional[str] = None
 
 

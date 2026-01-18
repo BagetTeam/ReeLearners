@@ -231,6 +231,7 @@ export const fetchTikTokForPrompt = action({
         title?: string;
         watch_url?: string;
         embed_url?: string;
+        video_url?: string;
         source?: string;
       }>;
     };
@@ -252,7 +253,7 @@ export const fetchTikTokForPrompt = action({
 
     let inserted = 0;
     for (const [index, video] of tiktokVideos.entries()) {
-      const videoUrl = video.embed_url ?? video.watch_url;
+      const videoUrl = video.video_url ?? video.embed_url ?? video.watch_url;
       if (!videoUrl) {
         continue;
       }
@@ -322,6 +323,7 @@ export const fetchForPrompt = action({
           title?: string;
           watch_url?: string;
           embed_url?: string;
+          video_url?: string;
           source?: string;
         }>;
       };
@@ -338,7 +340,7 @@ export const fetchForPrompt = action({
     let inserted = 0;
     const basePosition = Date.now();
     for (const [index, video] of allVideos.entries()) {
-      const videoUrl = video.embed_url ?? video.watch_url;
+      const videoUrl = video.video_url ?? video.embed_url ?? video.watch_url;
       if (!videoUrl) {
         continue;
       }
