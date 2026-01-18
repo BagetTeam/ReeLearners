@@ -1,6 +1,9 @@
 "use client";
 
+import { useMutation, useQuery } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../../convex/_generated/api";
+import type { Id } from "../../convex/_generated/dataModel";
 import TikTokPlayer from "./TikTokPlayer";
 
 declare global {
@@ -27,6 +30,7 @@ type FeedScrollerProps = {
   promptLabel: string;
   initialIndex?: number;
   currentStreak?: number;
+  userId: Id<"users"> | null;
   onIndexChange?: (nextIndex: number) => void;
 };
 
@@ -64,6 +68,7 @@ export default function FeedScroller({
   promptLabel,
   initialIndex = 0,
   currentStreak = 0,
+  userId,
   onIndexChange,
 }: FeedScrollerProps) {
   const safeInitialIndex = Math.min(
@@ -75,6 +80,14 @@ export default function FeedScroller({
   const [transitionEnabled, setTransitionEnabled] = useState(true);
   const [tikTokUnmutedIndices, setTikTokUnmutedIndices] = useState<Set<number>>(
     new Set(),
+  );
+  const [showComments, setShowComments] = useState(false);
+  const [commentDraft, setCommentDraft] = useState("");
+  const [commentSubmitting, setCommentSubmitting] = useState(false);
+  const [commentError, setCommentError] = useState<string | null>(null);
+  const [optimisticLiked, setOptimisticLiked] = useState<boolean | null>(null);
+  const [optimisticLikeCount, setOptimisticLikeCount] = useState<number | null>(
+    null,
   );
 
   const wheelDeltaRef = useRef(0);
@@ -90,6 +103,17 @@ export default function FeedScroller({
   const [needsUserGesture, setNeedsUserGesture] = useState(false);
   const userInteractedRef = useRef(false);
   const onIndexChangeRef = useRef(onIndexChange);
+
+  const currentItem = items[currentIndex];
+  const currentReelId = currentItem?.id as Id<"reels"> | undefined;
+  const engagement = useQuery(
+    api.engagement.getReelEngagement,
+    currentReelId
+      ? { reelId: currentReelId, userId: userId ?? undefined, limit: 4 }
+      : "skip",
+  );
+  const toggleLike = useMutation(api.engagement.toggleLike);
+  const addComment = useMutation(api.engagement.addComment);
 
   const visibleIndices = useMemo(() => {
     return [currentIndex - 1, currentIndex, currentIndex + 1].filter(
@@ -195,6 +219,20 @@ export default function FeedScroller({
   useEffect(() => {
     onIndexChangeRef.current?.(currentIndex);
   }, [currentIndex]);
+
+  useEffect(() => {
+    setShowComments(false);
+    setCommentDraft("");
+    setCommentError(null);
+    setOptimisticLiked(null);
+    setOptimisticLikeCount(null);
+  }, [currentItem?.id]);
+
+  useEffect(() => {
+    if (optimisticLiked === null) return;
+    setOptimisticLiked(null);
+    setOptimisticLikeCount(null);
+  }, [engagement?.likedByUser, engagement?.likeCount]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -333,6 +371,46 @@ export default function FeedScroller({
     return trimmed || title.trim();
   };
 
+  const likeCount = optimisticLikeCount ?? engagement?.likeCount ?? 0;
+  const likedByUser = optimisticLiked ?? engagement?.likedByUser ?? false;
+  const commentCount = engagement?.commentCount ?? 0;
+  const comments = engagement?.comments ?? [];
+
+  const handleToggleLike = async () => {
+    if (!userId || !currentReelId) return;
+    const nextLiked = !likedByUser;
+    setOptimisticLiked(nextLiked);
+    setOptimisticLikeCount((prev) => {
+      const base = prev ?? likeCount;
+      return Math.max(0, base + (nextLiked ? 1 : -1));
+    });
+    try {
+      await toggleLike({ reelId: currentReelId, userId });
+    } catch (err) {
+      setOptimisticLiked(null);
+      setOptimisticLikeCount(null);
+    }
+  };
+
+  const handleSubmitComment = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!userId || !currentReelId) return;
+    const trimmed = commentDraft.trim();
+    if (!trimmed) return;
+    setCommentSubmitting(true);
+    setCommentError(null);
+    try {
+      await addComment({ reelId: currentReelId, userId, body: trimmed });
+      setCommentDraft("");
+    } catch (err) {
+      setCommentError(
+        err instanceof Error ? err.message : "Failed to add comment",
+      );
+    } finally {
+      setCommentSubmitting(false);
+    }
+  };
+
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <div className="flex items-center justify-between border-b border-border px-6 py-4 border-(--muted)">
@@ -443,6 +521,90 @@ export default function FeedScroller({
                   </button>
                 )}
               </div>
+              {index === currentIndex && (
+                <div className="w-full max-w-sm rounded-2xl border border-border bg-card/70 p-4 shadow-lg border-(--muted)">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={handleToggleLike}
+                        disabled={!userId}
+                        aria-pressed={likedByUser}
+                        className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
+                          likedByUser
+                            ? "border-foreground bg-foreground text-background"
+                            : "border-border text-foreground"
+                        } ${!userId ? "cursor-not-allowed opacity-60" : ""}`}
+                      >
+                        Like {likeCount}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowComments((prev) => !prev)}
+                        className="rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground"
+                      >
+                        Comments {commentCount}
+                      </button>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {likedByUser ? "You liked this" : "Share feedback"}
+                    </span>
+                  </div>
+                  {showComments && (
+                    <div className="mt-4 space-y-3">
+                      <div className="max-h-40 space-y-2 overflow-y-auto rounded-xl border border-border/60 bg-background/60 p-3 text-sm">
+                        {comments.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            No comments yet. Start the conversation.
+                          </p>
+                        ) : (
+                          comments.map((comment) => (
+                            <div
+                              key={comment.id}
+                              className="space-y-1 border-b border-border/40 pb-2 last:border-b-0 last:pb-0"
+                            >
+                              <div className="text-xs font-semibold text-foreground">
+                                {comment.userName}
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                {comment.body}
+                              </p>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <form
+                        onSubmit={handleSubmitComment}
+                        className="flex items-center gap-2"
+                      >
+                        <input
+                          type="text"
+                          value={commentDraft}
+                          onChange={(event) => setCommentDraft(event.target.value)}
+                          placeholder={
+                            userId ? "Add a comment" : "Log in to comment"
+                          }
+                          disabled={!userId || commentSubmitting}
+                          maxLength={240}
+                          className="h-10 flex-1 rounded-full border border-border bg-background px-4 text-xs text-foreground outline-none focus:border-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                        />
+                        <button
+                          type="submit"
+                          disabled={
+                            !userId || commentSubmitting || !commentDraft.trim()
+                          }
+                          className="rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          {commentSubmitting ? "Posting" : "Post"}
+                        </button>
+                      </form>
+                      {commentError && (
+                        <p className="text-xs text-red-500">{commentError}</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </section>
           );
         })}

@@ -308,6 +308,7 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
       currentStreak={
         stats?.lastFeedId === feedId ? (stats?.currentStreak ?? 0) : 0
       }
+      userId={userId}
       onIndexChange={handleIndexChange}
     />
   );
