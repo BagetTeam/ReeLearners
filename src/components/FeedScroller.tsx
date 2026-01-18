@@ -303,7 +303,7 @@ export default function FeedScroller({
 
       // 2. Return the 'player/v1' URL.
       // This endpoint explicitly accepts autoplay parameters.
-      return `https://www.tiktok.com/player/v1/${videoId}?autoplay=1&muted=1&loop=1&controls=0`; 
+      return `https://www.tiktok.com/player/v1/${videoId}?autoplay=1&loop=1&play_button=1`;    
     } catch (e) {
       return videoUrl;
     }
