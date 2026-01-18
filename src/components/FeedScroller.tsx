@@ -25,6 +25,7 @@ type FeedScrollerProps = {
   items: FeedItem[];
   promptLabel: string;
   initialIndex?: number;
+  currentStreak?: number;
   onIndexChange?: (nextIndex: number) => void;
 };
 
@@ -43,6 +44,7 @@ export default function FeedScroller({
   items,
   promptLabel,
   initialIndex = 0,
+  currentStreak = 0,
   onIndexChange,
 }: FeedScrollerProps) {
   const safeInitialIndex = Math.min(
@@ -64,6 +66,7 @@ export default function FeedScroller({
   const [ytReady, setYtReady] = useState(false);
   const [needsUserGesture, setNeedsUserGesture] = useState(false);
   const userInteractedRef = useRef(false);
+  const onIndexChangeRef = useRef(onIndexChange);
 
   const visibleIndices = useMemo(() => {
     return [currentIndex - 1, currentIndex, currentIndex + 1].filter(
@@ -150,8 +153,12 @@ export default function FeedScroller({
   };
 
   useEffect(() => {
-    onIndexChange?.(currentIndex);
-  }, [currentIndex, onIndexChange]);
+    onIndexChangeRef.current = onIndexChange;
+  }, [onIndexChange]);
+
+  useEffect(() => {
+    onIndexChangeRef.current?.(currentIndex);
+  }, [currentIndex]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -289,6 +296,10 @@ export default function FeedScroller({
           <h1 className="text-lg font-semibold">{promptLabel}</h1>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 rounded-full border border-border px-3 py-1 border-(--muted) text-foreground">
+            <span className="text-base">🔥</span>
+            <span className="font-semibold">{currentStreak}</span>
+          </div>
           <span className="rounded-full border border-border px-3 py-1 border-(--muted)">
             Auto-play on
           </span>

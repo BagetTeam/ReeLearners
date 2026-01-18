@@ -56,6 +56,31 @@ const schema = defineSchema({
   })
     .index("by_feedId", ["feedId"])
     .index("by_feed_status", ["feedId", "status"]),
+
+  userStats: defineTable({
+    userId: v.id("users"),
+    currentStreak: v.number(),
+    bestStreak: v.number(),
+    dailyStreak: v.number(),
+    totalCount: v.number(),
+    lastFeedId: v.optional(v.id("feeds")),
+    lastDayKey: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_userId", ["userId"])
+    .index("by_dailyStreak", ["dailyStreak"])
+    .index("by_totalCount", ["totalCount"]),
+
+  reelViews: defineTable({
+    userId: v.id("users"),
+    feedId: v.id("feeds"),
+    reelId: v.id("reels"),
+    dayKey: v.string(),
+    viewedAt: v.number(),
+  })
+    .index("by_user_reel", ["userId", "reelId"])
+    .index("by_user_day", ["userId", "dayKey"]),
 });
 
 export default schema;

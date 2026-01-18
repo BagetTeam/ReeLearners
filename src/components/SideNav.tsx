@@ -113,7 +113,21 @@ export default function SideNav() {
       <SidebarSeparator />
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Prompt history</SidebarGroupLabel>
+          <SidebarGroupLabel className="font-semibold text-sidebar-foreground">
+            Leaderboard
+          </SidebarGroupLabel>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip="Leaderboard">
+                <Link href="/leaderboard">Top scrollers</Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel className="font-semibold text-sidebar-foreground">
+            Prompt history
+          </SidebarGroupLabel>
           <SidebarMenu>
             {isLoading && (
               <SidebarMenuItem>
