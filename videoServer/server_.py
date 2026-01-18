@@ -261,9 +261,14 @@ async def search_videos(
                 videos=[], count=0, query=query, optimized_query=None
             )
 
-        import random
+        # Preserve source priority when multiple sources are requested.
+        if len(requested_sources) > 1:
+            priority = {source: idx for idx, source in enumerate(requested_sources)}
+            videos.sort(key=lambda item: priority.get(item.get("source", ""), 999))
+        else:
+            import random
 
-        random.shuffle(videos)
+            random.shuffle(videos)
         videos = videos[:max_results]
 
         if not videos:

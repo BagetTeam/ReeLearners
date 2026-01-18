@@ -138,35 +138,46 @@ export const fetchForPrompt = action({
       throw new Error("VIDEO_API_URL not set");
     }
 
-    const url = new URL("/search", baseUrl);
-    url.searchParams.set("query", args.prompt);
-    url.searchParams.set("max_results", String(args.limit ?? 8));
-    url.searchParams.set("sources", "youtube,tiktok");
+    const fetchVideos = async (source: string) => {
+      const url = new URL("/search", baseUrl);
+      url.searchParams.set("query", args.prompt);
+      url.searchParams.set("max_results", String(args.limit ?? 8));
+      url.searchParams.set("sources", source);
 
-    const youtubeResponse = await fetch(url.toString());
-    if (!youtubeResponse.ok) {
-      const detail = await youtubeResponse.text();
-      throw new Error(`Video search failed: ${youtubeResponse.status} ${detail}`);
-    }
+      const response = await fetch(url.toString());
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(`Video search failed: ${response.status} ${detail}`);
+      }
 
-    const youtubePayload = (await youtubeResponse.json()) as {
-      videos?: Array<{
-        video_id?: string;
-        title?: string;
-        watch_url?: string;
-        embed_url?: string;
-      }>;
+      const payload = (await response.json()) as {
+        videos?: Array<{
+          video_id?: string;
+          title?: string;
+          watch_url?: string;
+          embed_url?: string;
+          source?: string;
+        }>;
+      };
+
+      return payload.videos ?? [];
     };
 
-    const youtubeVideos = youtubePayload.videos ?? [];
-    let inserted = 0;
+    const youtubeVideos = await fetchVideos("youtube");
+    const tiktokVideos = await fetchVideos("tiktok");
+    const allVideos = [
+      ...youtubeVideos.map((video) => ({ ...video, source: video.source ?? "youtube" })),
+      ...tiktokVideos.map((video) => ({ ...video, source: video.source ?? "tiktok" })),
+    ];
 
+    let inserted = 0;
     const basePosition = Date.now();
-    for (const [index, video] of youtubeVideos.entries()) {
+    for (const [index, video] of allVideos.entries()) {
       const videoUrl = video.embed_url ?? video.watch_url;
       if (!videoUrl) {
         continue;
       }
+      const provider = video.source ?? "youtube";
 
       await ctx.runMutation(api.reels.addToFeed, {
         feedId: args.feedId,
@@ -179,13 +190,11 @@ export const fetchForPrompt = action({
         sourceReference: video.video_id ?? undefined,
         metadata: {
           watchUrl: video.watch_url ?? undefined,
-          provider: "youtube",
+          provider,
         },
       });
       inserted += 1;
     }
-
-    // TikTok fetch happens inside the video server (Apify-powered).
 
     await ctx.runMutation(api.feeds.updateStatus, {
       feedId: args.feedId,
