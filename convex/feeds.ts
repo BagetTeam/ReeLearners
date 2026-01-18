@@ -156,6 +156,22 @@ export const deleteFeed = mutation({
         await ctx.db.delete(view._id);
       }
 
+      const likes = await ctx.db
+        .query("reelLikes")
+        .withIndex("by_reelId", (q) => q.eq("reelId", reelId))
+        .collect();
+      for (const like of likes) {
+        await ctx.db.delete(like._id);
+      }
+
+      const comments = await ctx.db
+        .query("reelComments")
+        .withIndex("by_reelId", (q) => q.eq("reelId", reelId))
+        .collect();
+      for (const comment of comments) {
+        await ctx.db.delete(comment._id);
+      }
+
       await ctx.db.delete(reelId);
     }
 
