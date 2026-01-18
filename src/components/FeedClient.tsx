@@ -111,6 +111,28 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
     void run();
   }, [feed, feedId, fetchForPrompt, reels]);
 
+  const items = useMemo(() => {
+    if (!reels) return [];
+    return reels
+      .filter((reel) => Boolean(reel.videoUrl))
+      .map((reel) => {
+        const source =
+          reel.sourceType === "generated"
+            ? "Veo 3"
+            : reel.sourceType === "external"
+              ? "YouTube"
+              : "Internal DB";
+        return {
+          id: reel._id,
+          title: reel.title ?? "Untitled clip",
+          source,
+          description: reel.description ?? feed?.prompt ?? "Prompt feed",
+          videoUrl: reel.videoUrl ?? "",
+          isEmbed: reel.videoUrl?.includes("youtube.com/embed") ?? false,
+        };
+      });
+  }, [feed, reels]);
+
   const handleIndexChange = useCallback(
     (nextIndex: number) => {
       if (!feedId || !reels || !reels[nextIndex]) return;
@@ -160,28 +182,6 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
       }
     };
   }, []);
-
-  const items = useMemo(() => {
-    if (!reels) return [];
-    return reels
-      .filter((reel) => Boolean(reel.videoUrl))
-      .map((reel) => {
-        const source =
-          reel.sourceType === "generated"
-            ? "Veo 3"
-            : reel.sourceType === "external"
-              ? "YouTube"
-              : "Internal DB";
-        return {
-          id: reel._id,
-          title: reel.title ?? "Untitled clip",
-          source,
-          description: reel.description ?? feed?.prompt ?? "Prompt feed",
-          videoUrl: reel.videoUrl ?? "",
-          isEmbed: reel.videoUrl?.includes("youtube.com/embed") ?? false,
-        };
-      });
-  }, [feed, reels]);
 
   if (error) {
     return (
