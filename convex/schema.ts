@@ -89,6 +89,7 @@ const schema = defineSchema({
     dayKey: v.string(),
     viewedAt: v.number(),
   })
+    .index("by_reelId", ["reelId"])
     .index("by_user_reel", ["userId", "reelId"])
     .index("by_user_day", ["userId", "dayKey"]),
 });

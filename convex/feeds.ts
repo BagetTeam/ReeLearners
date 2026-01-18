@@ -133,8 +133,30 @@ export const deleteFeed = mutation({
       .withIndex("by_feed_position", (q) => q.eq("feedId", args.feedId))
       .collect();
 
+    const affectedReelIds = new Set(statuses.map((status) => status.reelId));
+
     for (const status of statuses) {
       await ctx.db.delete(status._id);
+    }
+
+    for (const reelId of affectedReelIds) {
+      const remainingStatus = await ctx.db
+        .query("reelStatus")
+        .withIndex("by_reelId", (q) => q.eq("reelId", reelId))
+        .first();
+      if (remainingStatus) {
+        continue;
+      }
+
+      const views = await ctx.db
+        .query("reelViews")
+        .withIndex("by_reelId", (q) => q.eq("reelId", reelId))
+        .collect();
+      for (const view of views) {
+        await ctx.db.delete(view._id);
+      }
+
+      await ctx.db.delete(reelId);
     }
 
     await ctx.db.delete(args.feedId);
