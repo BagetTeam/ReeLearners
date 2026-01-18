@@ -37,28 +37,91 @@ export const addToFeed = mutation({
     const now = Date.now();
     const status = args.status ?? (args.videoUrl ? "ready" : "pending");
 
-    return ctx.db.insert("reels", {
+    let reel =
+      args.videoUrl !== undefined
+        ? await ctx.db
+            .query("reels")
+            .withIndex("by_videoUrl", (q) => q.eq("videoUrl", args.videoUrl))
+            .first()
+        : null;
+
+    if (!reel && args.sourceReference) {
+      reel = await ctx.db
+        .query("reels")
+        .withIndex("by_sourceReference", (q) =>
+          q.eq("sourceReference", args.sourceReference),
+        )
+        .first();
+    }
+
+    let reelId = reel?._id;
+    if (!reelId) {
+      reelId = await ctx.db.insert("reels", {
+        sourceType: args.sourceType,
+        videoUrl: args.videoUrl ?? undefined,
+        thumbnailUrl: args.thumbnailUrl ?? undefined,
+        title: args.title ?? undefined,
+        description: args.description ?? undefined,
+        durationSeconds: args.durationSeconds ?? undefined,
+        sourceReference: args.sourceReference ?? undefined,
+        metadata: args.metadata ?? undefined,
+        createdAt: now,
+        updatedAt: now,
+      });
+      reel = await ctx.db.get(reelId);
+    } else if (reel) {
+      const patch: Partial<typeof reel> = {};
+      if (args.thumbnailUrl && !reel.thumbnailUrl) {
+        patch.thumbnailUrl = args.thumbnailUrl;
+      }
+      if (args.title && !reel.title) {
+        patch.title = args.title;
+      }
+      if (args.description && !reel.description) {
+        patch.description = args.description;
+      }
+      if (
+        args.durationSeconds !== undefined &&
+        reel.durationSeconds === undefined
+      ) {
+        patch.durationSeconds = args.durationSeconds;
+      }
+      if (args.metadata && !reel.metadata) {
+        patch.metadata = args.metadata;
+      }
+      if (Object.keys(patch).length > 0) {
+        patch.updatedAt = now;
+        await ctx.db.patch(reelId, patch);
+      }
+    }
+
+    const existingStatus = await ctx.db
+      .query("reelStatus")
+      .withIndex("by_feed_reel", (q) =>
+        q.eq("feedId", args.feedId).eq("reelId", reelId!),
+      )
+      .first();
+
+    if (existingStatus) {
+      return { reelId: reelId!, statusId: existingStatus._id, isNew: false };
+    }
+
+    const statusId = await ctx.db.insert("reelStatus", {
       feedId: args.feedId,
+      reelId: reelId!,
       position: args.position ?? now,
-      sourceType: args.sourceType,
       status,
-      videoUrl: args.videoUrl ?? undefined,
-      thumbnailUrl: args.thumbnailUrl ?? undefined,
-      title: args.title ?? undefined,
-      description: args.description ?? undefined,
-      durationSeconds: args.durationSeconds ?? undefined,
-      sourceReference: args.sourceReference ?? undefined,
-      metadata: args.metadata ?? undefined,
       createdAt: now,
       updatedAt: now,
     });
+
+    return { reelId: reelId!, statusId, isNew: true };
   },
 });
 
 export const update = mutation({
   args: {
     reelId: v.id("reels"),
-    status: v.optional(reelStatus),
     videoUrl: v.optional(v.string()),
     thumbnailUrl: v.optional(v.string()),
     title: v.optional(v.string()),
@@ -73,7 +136,6 @@ export const update = mutation({
     }
 
     await ctx.db.patch(args.reelId, {
-      status: args.status ?? reel.status,
       videoUrl: args.videoUrl ?? reel.videoUrl ?? undefined,
       thumbnailUrl: args.thumbnailUrl ?? reel.thumbnailUrl ?? undefined,
       title: args.title ?? reel.title ?? undefined,
@@ -93,22 +155,36 @@ export const listForFeed = query({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    let reelsQuery;
+    let statusQuery;
     if (args.status) {
-      reelsQuery = ctx.db
-        .query("reels")
-        .withIndex("by_feed_status", (q) =>
+      statusQuery = ctx.db
+        .query("reelStatus")
+        .withIndex("by_feed_status_position", (q) =>
           q.eq("feedId", args.feedId).eq("status", args.status!),
         );
     } else {
-      reelsQuery = ctx.db
-        .query("reels")
-        .withIndex("by_feedId", (q) => q.eq("feedId", args.feedId));
+      statusQuery = ctx.db
+        .query("reelStatus")
+        .withIndex("by_feed_position", (q) => q.eq("feedId", args.feedId));
     }
 
-    const ordered = reelsQuery.order("asc");
-    const all = await ordered.collect();
-    return args.limit ? all.slice(0, args.limit) : all;
+    const ordered = statusQuery.order("asc");
+    const statuses = args.limit
+      ? await ordered.take(args.limit)
+      : await ordered.collect();
+
+    const reels = [];
+    for (const entry of statuses) {
+      const reel = await ctx.db.get(entry.reelId);
+      if (!reel) continue;
+      reels.push({
+        ...reel,
+        feedId: entry.feedId,
+        status: entry.status,
+        position: entry.position,
+      });
+    }
+    return reels;
   },
 });
 
@@ -167,7 +243,7 @@ export const fetchForPrompt = action({
         continue;
       }
 
-      await ctx.runMutation(api.reels.addToFeed, {
+      const result = await ctx.runMutation(api.reels.addToFeed, {
         feedId: args.feedId,
         sourceType: "external",
         position: basePosition + index,
@@ -180,7 +256,9 @@ export const fetchForPrompt = action({
           watchUrl: video.watch_url ?? undefined,
         },
       });
-      inserted += 1;
+      if (result.isNew) {
+        inserted += 1;
+      }
     }
 
     await ctx.runMutation(api.feeds.updateStatus, {

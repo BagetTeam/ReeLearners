@@ -32,17 +32,10 @@ const schema = defineSchema({
     .index("by_user_status", ["userId", "status"]),
 
   reels: defineTable({
-    feedId: v.id("feeds"),
-    position: v.number(),
     sourceType: v.union(
       v.literal("internal"),
       v.literal("generated"),
       v.literal("external"),
-    ),
-    status: v.union(
-      v.literal("pending"),
-      v.literal("ready"),
-      v.literal("failed"),
     ),
     videoUrl: v.optional(v.string()),
     thumbnailUrl: v.optional(v.string()),
@@ -54,8 +47,25 @@ const schema = defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_feedId", ["feedId"])
-    .index("by_feed_status", ["feedId", "status"]),
+    .index("by_videoUrl", ["videoUrl"])
+    .index("by_sourceReference", ["sourceReference"]),
+
+  reelStatus: defineTable({
+    feedId: v.id("feeds"),
+    reelId: v.id("reels"),
+    position: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("ready"),
+      v.literal("failed"),
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_feed_position", ["feedId", "position"])
+    .index("by_feed_status_position", ["feedId", "status", "position"])
+    .index("by_feed_reel", ["feedId", "reelId"])
+    .index("by_reelId", ["reelId"]),
 
   userStats: defineTable({
     userId: v.id("users"),

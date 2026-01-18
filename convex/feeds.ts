@@ -94,11 +94,13 @@ export const updateProgress = mutation({
     }
 
     if (args.lastSeenReelId) {
-      const reel = await ctx.db.get(args.lastSeenReelId);
-      if (!reel) {
-        throw new Error("Reel not found");
-      }
-      if (reel.feedId !== args.feedId) {
+      const status = await ctx.db
+        .query("reelStatus")
+        .withIndex("by_feed_reel", (q) =>
+          q.eq("feedId", args.feedId).eq("reelId", args.lastSeenReelId!),
+        )
+        .first();
+      if (!status) {
         throw new Error("Reel does not belong to feed");
       }
     }
@@ -126,13 +128,13 @@ export const deleteFeed = mutation({
       throw new Error("Feed not found");
     }
 
-    const reels = await ctx.db
-      .query("reels")
-      .withIndex("by_feedId", (q) => q.eq("feedId", args.feedId))
+    const statuses = await ctx.db
+      .query("reelStatus")
+      .withIndex("by_feed_position", (q) => q.eq("feedId", args.feedId))
       .collect();
 
-    for (const reel of reels) {
-      await ctx.db.delete(reel._id);
+    for (const status of statuses) {
+      await ctx.db.delete(status._id);
     }
 
     await ctx.db.delete(args.feedId);

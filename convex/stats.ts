@@ -25,7 +25,18 @@ export const recordView = mutation({
   },
   handler: async (ctx, args) => {
     const reel = await ctx.db.get(args.reelId);
-    if (!reel || reel.feedId !== args.feedId) {
+    if (!reel) {
+      throw new Error("Reel not found");
+    }
+
+    const status = await ctx.db
+      .query("reelStatus")
+      .withIndex("by_feed_reel", (q) =>
+        q.eq("feedId", args.feedId).eq("reelId", args.reelId),
+      )
+      .first();
+
+    if (!status) {
       throw new Error("Reel does not belong to feed");
     }
 

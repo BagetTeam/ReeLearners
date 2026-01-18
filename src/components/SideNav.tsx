@@ -166,7 +166,7 @@ export default function SideNav() {
                 </SidebarMenuButton>
                 <ConfirmDialog
                   title="Delete prompt?"
-                  description={`Delete "${feed.prompt}" and all its reels? This cannot be undone.`}
+                  description={`Delete "${feed.prompt}" and remove it from your history? This cannot be undone.`}
                   confirmLabel="Delete"
                   isLoading={deletingId === feed._id}
                   onConfirm={() => handleDelete(feed._id)}
