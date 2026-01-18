@@ -30,18 +30,18 @@ export default function TikTokPlayer({
     ? url
     : `https://www.tiktok.com/player/v1/${videoId}`;
   const autoplay = isActive ? "1" : "0";
-  const muted = canPlayWithSound ? "0" : "1";
+  // const muted = canPlayWithSound ? "0" : "1";
   const embedUrl = (() => {
     try {
       const embed = new URL(baseEmbedUrl);
       embed.searchParams.set("autoplay", autoplay);
       embed.searchParams.set("loop", "1");
       embed.searchParams.set("play_button", "1");
-      embed.searchParams.set("muted", muted);
+      // embed.searchParams.set("muted", muted);
       embed.searchParams.set("volume", "1");
       return embed.toString();
     } catch {
-      return `${baseEmbedUrl}?autoplay=${autoplay}&loop=1&play_button=1&muted=${muted}&volume=1`;
+      return `${baseEmbedUrl}?autoplay=${autoplay}&loop=1&play_button=1&volume=1`;
     }
   })();
 
@@ -55,7 +55,7 @@ export default function TikTokPlayer({
         scrolling="no"
         frameBorder="0"
       />
-      {!canPlayWithSound && (
+      {/* {!canPlayWithSound && (
         <button
           type="button"
           onClick={onEnableSound}
@@ -63,7 +63,7 @@ export default function TikTokPlayer({
         >
           Tap to play with sound
         </button>
-      )}
+      )} */}
     </div>
   );
 };
