@@ -32,8 +32,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize YouTube Searcher lazily (only when needed)
+# Initialize Searchers lazily (only when needed)
 youtube_searcher = None
+tiktok_searcher = None
+instagram_searcher = None
 
 
 def get_youtube_searcher():
@@ -65,12 +67,58 @@ def get_youtube_searcher():
     return youtube_searcher
 
 
+# TikTok searcher initialization
+def get_tiktok_searcher():
+    global tiktok_searcher
+    if tiktok_searcher is None:
+        try:
+            from socialVideos import TikTokVideoSearcher
+
+            access_token = os.getenv("TIKTOK_ACCESS_TOKEN")
+            base_url = os.getenv("TIKTOK_API_BASE_URL", "https://open.tiktokapis.com")
+
+            if access_token:
+                tiktok_searcher = TikTokVideoSearcher(access_token, base_url=base_url)
+                logger.info("TikTok Searcher initialized")
+            else:
+                logger.warning("TIKTOK_ACCESS_TOKEN not set")
+        except Exception as e:
+            logger.error(f"Failed to initialize TikTok Searcher: {e}")
+    return tiktok_searcher
+
+
+# Instagram searcher initialization
+def get_instagram_searcher():
+    global instagram_searcher
+    if instagram_searcher is None:
+        try:
+            from socialVideos import InstagramReelsSearcher
+
+            access_token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
+            user_id = os.getenv("INSTAGRAM_USER_ID")
+            base_url = os.getenv(
+                "INSTAGRAM_GRAPH_BASE_URL", "https://graph.facebook.com/v20.0"
+            )
+
+            if access_token and user_id:
+                instagram_searcher = InstagramReelsSearcher(
+                    access_token, user_id, base_url=base_url
+                )
+                logger.info("Instagram Reels Searcher initialized")
+            else:
+                logger.warning("INSTAGRAM_ACCESS_TOKEN or INSTAGRAM_USER_ID not set")
+        except Exception as e:
+            logger.error(f"Failed to initialize Instagram Searcher: {e}")
+    return instagram_searcher
+
+
 # Pydantic models for request/response
 class VideoResponse(BaseModel):
     video_id: str
     title: str
     watch_url: str
     embed_url: str
+    source: Optional[str] = None
 
 
 class VideoListResponse(BaseModel):
@@ -123,6 +171,7 @@ async def search_videos(
     query: str,
     max_results: int = 50,
     optimize: bool = True,  # New parameter to control Gemini optimization
+    sources: Optional[str] = None,
 ):
     """
     Search for YouTube Shorts based on a query.
@@ -138,12 +187,13 @@ async def search_videos(
         List of videos with embedded links
     """
 
-    searcher = get_youtube_searcher()
-    if not searcher:
-        raise HTTPException(
-            status_code=503,
-            detail="YouTube API not configured. Please set YOUTUBE_API_KEY environment variable.",
-        )
+    requested_sources = [
+        item.strip().lower()
+        for item in (sources.split(",") if sources else ["youtube"])
+        if item.strip()
+    ]
+    if not requested_sources:
+        requested_sources = ["youtube"]
 
     if not query or len(query.strip()) == 0:
         raise HTTPException(status_code=400, detail="Query parameter is required")
@@ -154,10 +204,62 @@ async def search_videos(
         )
 
     try:
-        logger.info(f"Searching for: {query} (optimize={optimize})")
+        logger.info(
+            f"Searching for: {query} (sources={requested_sources}, optimize={optimize})"
+        )
 
-        # Search with optional optimization
-        videos = searcher.search_shorts(query, max_results, optimize_prompt=optimize)
+        per_source_limit = max(1, max_results // max(1, len(requested_sources)))
+        videos = []
+
+        if "youtube" in requested_sources:
+            searcher = get_youtube_searcher()
+            if not searcher:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        "YouTube API not configured. Please set YOUTUBE_API_KEY "
+                        "environment variable."
+                    ),
+                )
+            videos.extend(
+                searcher.search_shorts(
+                    query, per_source_limit, optimize_prompt=optimize
+                )
+            )
+
+        if "tiktok" in requested_sources:
+            searcher = get_tiktok_searcher()
+            if not searcher:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        "TikTok API not configured. Please set TIKTOK_ACCESS_TOKEN "
+                        "environment variable."
+                    ),
+                )
+            videos.extend(searcher.search_videos(query, per_source_limit))
+
+        if "instagram" in requested_sources or "reels" in requested_sources:
+            searcher = get_instagram_searcher()
+            if not searcher:
+                raise HTTPException(
+                    status_code=503,
+                    detail=(
+                        "Instagram API not configured. Please set INSTAGRAM_ACCESS_TOKEN "
+                        "and INSTAGRAM_USER_ID environment variables."
+                    ),
+                )
+            videos.extend(searcher.search_reels(query, per_source_limit))
+
+        if not videos:
+            return VideoListResponse(
+                videos=[], count=0, query=query, optimized_query=None
+            )
+
+        import random
+
+        random.shuffle(videos)
+        videos = videos[:max_results]
 
         if not videos:
             return VideoListResponse(
