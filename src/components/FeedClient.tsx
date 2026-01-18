@@ -100,20 +100,13 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
     return reels
       .filter((reel) => Boolean(reel.videoUrl))
       .map((reel) => {
-        const source =
-          reel.sourceType === "generated"
-            ? "Veo 3"
-            : reel.sourceType === "external"
-              ? "YouTube"
-              : "Internal DB";
         return {
           id: reel._id,
           title: reel.title ?? "Untitled clip",
-          source,
+          source: "",
           description: reel.description ?? feed?.prompt ?? "Prompt feed",
           videoUrl: reel.videoUrl ?? "",
           isEmbed:
-            reel.videoUrl?.includes("youtube.com/embed") ||
             reel.videoUrl?.includes("tiktok.com/embed") ||
             false,
         };
