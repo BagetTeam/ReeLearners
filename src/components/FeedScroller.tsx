@@ -464,143 +464,181 @@ export default function FeedScroller({
                   {filterOutTitle(item.title)}
                 </h2>
               </div>
-              <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl border-(--muted)">
-                {item.isEmbed ? (
-                  isTikTokEmbed(item.videoUrl) ? (
-                    index === currentIndex ? (
-                      <TikTokPlayer
-                        url={item.videoUrl}
-                        isActive={index === currentIndex}
-                        canPlayWithSound={tikTokUnmutedIndices.has(index)}
-                        onEnableSound={() => enableTikTokSound(index)}
-                      />
+              <div className="flex items-center gap-3">
+                <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl border-(--muted)">
+                  {item.isEmbed ? (
+                    isTikTokEmbed(item.videoUrl) ? (
+                      index === currentIndex ? (
+                        <TikTokPlayer
+                          url={item.videoUrl}
+                          isActive={index === currentIndex}
+                          canPlayWithSound={tikTokUnmutedIndices.has(index)}
+                          onEnableSound={() => enableTikTokSound(index)}
+                        />
+                      ) : (
+                        <div className="h-[60vh] w-full bg-black/20" />
+                      )
                     ) : (
-                      <div className="h-[60vh] w-full bg-black/20" />
+                      <div
+                        ref={(element) => {
+                          if (element) {
+                            ytContainerRefs.current.set(index, element);
+                          } else {
+                            ytContainerRefs.current.delete(index);
+                          }
+                        }}
+                        className="h-[60vh] w-full"
+                      />
                     )
                   ) : (
-                    <div
+                    <video
                       ref={(element) => {
                         if (element) {
-                          ytContainerRefs.current.set(index, element);
+                          videoRefs.current.set(index, element);
                         } else {
-                          ytContainerRefs.current.delete(index);
+                          videoRefs.current.delete(index);
                         }
                       }}
-                      className="h-[60vh] w-full"
+                      className="h-[60vh] w-full object-cover"
+                      src={item.videoUrl}
+                      playsInline
+                      muted={!isTikTokVideoUrl(item.videoUrl)}
+                      loop
+                      controls
+                      autoPlay={index === currentIndex}
                     />
-                  )
-                ) : (
-                  <video
-                    ref={(element) => {
-                      if (element) {
-                        videoRefs.current.set(index, element);
-                      } else {
-                        videoRefs.current.delete(index);
-                      }
-                    }}
-                    className="h-[60vh] w-full object-cover"
-                    src={item.videoUrl}
-                    playsInline
-                    muted={!isTikTokVideoUrl(item.videoUrl)}
-                    loop
-                    controls
-                    autoPlay={index === currentIndex}
-                  />
-                )}
-                {index === currentIndex && needsUserGesture && (
-                  <button
-                    type="button"
-                    onClick={() => playCurrentMedia(true)}
-                    className="absolute inset-0 flex items-center justify-center bg-black/40 text-sm font-semibold"
-                  >
-                    Tap to play
-                  </button>
-                )}
-              </div>
-              {index === currentIndex && (
-                <div className="w-full max-w-sm rounded-2xl border border-border bg-card/70 p-4 shadow-lg border-(--muted)">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <button
-                        type="button"
-                        onClick={handleToggleLike}
-                        disabled={!userId}
-                        aria-pressed={likedByUser}
-                        className={`rounded-full border px-4 py-2 text-xs font-semibold transition ${
-                          likedByUser
-                            ? "border-foreground bg-foreground text-background"
-                            : "border-border text-foreground"
-                        } ${!userId ? "cursor-not-allowed opacity-60" : ""}`}
-                      >
-                        Like {likeCount}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowComments((prev) => !prev)}
-                        className="rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground"
-                      >
-                        Comments {commentCount}
-                      </button>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {likedByUser ? "You liked this" : "Share feedback"}
-                    </span>
-                  </div>
-                  {showComments && (
-                    <div className="mt-4 space-y-3">
-                      <div className="max-h-40 space-y-2 overflow-y-auto rounded-xl border border-border/60 bg-background/60 p-3 text-sm">
-                        {comments.length === 0 ? (
-                          <p className="text-xs text-muted-foreground">
-                            No comments yet. Start the conversation.
-                          </p>
-                        ) : (
-                          comments.map((comment) => (
-                            <div
-                              key={comment.id}
-                              className="space-y-1 border-b border-border/40 pb-2 last:border-b-0 last:pb-0"
-                            >
-                              <div className="text-xs font-semibold text-foreground">
-                                {comment.userName}
-                              </div>
-                              <p className="text-xs text-muted-foreground">
-                                {comment.body}
-                              </p>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                      <form
-                        onSubmit={handleSubmitComment}
-                        className="flex items-center gap-2"
-                      >
-                        <input
-                          type="text"
-                          value={commentDraft}
-                          onChange={(event) => setCommentDraft(event.target.value)}
-                          placeholder={
-                            userId ? "Add a comment" : "Log in to comment"
-                          }
-                          disabled={!userId || commentSubmitting}
-                          maxLength={240}
-                          className="h-10 flex-1 rounded-full border border-border bg-background px-4 text-xs text-foreground outline-none focus:border-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                        />
-                        <button
-                          type="submit"
-                          disabled={
-                            !userId || commentSubmitting || !commentDraft.trim()
-                          }
-                          className="rounded-full border border-border px-4 py-2 text-xs font-semibold text-foreground disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {commentSubmitting ? "Posting" : "Post"}
-                        </button>
-                      </form>
-                      {commentError && (
-                        <p className="text-xs text-red-500">{commentError}</p>
-                      )}
-                    </div>
+                  )}
+                  {index === currentIndex && needsUserGesture && (
+                    <button
+                      type="button"
+                      onClick={() => playCurrentMedia(true)}
+                      className="absolute inset-0 flex items-center justify-center bg-black/40 text-sm font-semibold"
+                    >
+                      Tap to play
+                    </button>
                   )}
                 </div>
-              )}
+                {index === currentIndex && (
+                  <div className="flex items-start gap-3">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="flex flex-col items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={handleToggleLike}
+                          disabled={!userId}
+                          aria-pressed={likedByUser}
+                          className={`flex h-12 w-12 items-center justify-center rounded-full transition ${
+                            likedByUser
+                              ? "bg-red-500 text-white"
+                              : "bg-card/80 text-foreground hover:bg-card"
+                          } ${!userId ? "cursor-not-allowed opacity-60" : ""}`}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill={likedByUser ? "currentColor" : "none"}
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            className="h-6 w-6"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"
+                            />
+                          </svg>
+                        </button>
+                        <span className="text-xs text-muted-foreground">{likeCount}</span>
+                      </div>
+                      <div className="flex flex-col items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setShowComments((prev) => !prev)}
+                          className={`flex h-12 w-12 items-center justify-center rounded-full transition ${
+                            showComments
+                              ? "bg-foreground text-background"
+                              : "bg-card/80 text-foreground hover:bg-card"
+                          }`}
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                            className="h-6 w-6"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z"
+                            />
+                          </svg>
+                        </button>
+                        <span className="text-xs text-muted-foreground">{commentCount}</span>
+                      </div>
+                    </div>
+                    {showComments && (
+                      <div className="w-64 mt-5 rounded-2xl border border-border bg-card/95 p-3 shadow-lg backdrop-blur-sm">
+                        <div className="max-h-48 space-y-2 overflow-y-auto scrollbar-none">
+                          {comments.length === 0 ? (
+                            <p className="py-4 text-center text-xs text-muted-foreground">
+                              No comments yet. Be the first!
+                            </p>
+                          ) : (
+                            comments.map((comment) => (
+                              <div
+                                key={comment.id}
+                                className="space-y-1 border-b border-border/40 pb-2 last:border-b-0 last:pb-0"
+                              >
+                                <div className="text-xs font-semibold text-foreground">
+                                  {comment.userName}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {comment.body}
+                                </p>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                        <form
+                          onSubmit={handleSubmitComment}
+                          className="mt-3 flex items-center gap-2"
+                        >
+                          <input
+                            type="text"
+                            value={commentDraft}
+                            onChange={(event) => setCommentDraft(event.target.value)}
+                            placeholder={userId ? "Add a comment..." : "Log in to comment"}
+                            disabled={!userId || commentSubmitting}
+                            maxLength={240}
+                            className="h-9 flex-1 rounded-full border border-border bg-background px-3 text-xs text-foreground outline-none focus:border-foreground disabled:cursor-not-allowed disabled:opacity-60"
+                          />
+                          <button
+                            type="submit"
+                            disabled={
+                              !userId || commentSubmitting || !commentDraft.trim()
+                            }
+                            className="flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-background disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 24 24"
+                              fill="currentColor"
+                              className="h-4 w-4"
+                            >
+                              <path d="M3.478 2.404a.75.75 0 0 0-.926.941l2.432 7.905H13.5a.75.75 0 0 1 0 1.5H4.984l-2.432 7.905a.75.75 0 0 0 .926.94 60.519 60.519 0 0 0 18.445-8.986.75.75 0 0 0 0-1.218A60.517 60.517 0 0 0 3.478 2.404Z" />
+                            </svg>
+                          </button>
+                        </form>
+                        {commentError && (
+                          <p className="mt-2 text-xs text-red-500">{commentError}</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </section>
           );
         })}
