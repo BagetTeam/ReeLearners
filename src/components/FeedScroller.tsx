@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import TikTokPlayer from "./TikTokPlayer";
 
 declare global {
   interface Window {
@@ -42,6 +43,20 @@ const getYouTubeId = (url: string) => {
 
 const isTikTokEmbed = (url: string) => url.includes("tiktok.com/embed");
 
+const getTikTokEmbedUrl = (videoUrl: string) => {
+  try {
+    const idMatch = videoUrl.match(/(?:\/video\/|\/v2\/|_)(\d+)/);
+    const videoId = idMatch ? idMatch[1] : null;
+
+    if (!videoId) return videoUrl;
+
+    return `https://www.tiktok.com/player/v1/${videoId}?autoplay=1&loop=1&play_button=1`;    
+  } catch (e) {
+    return videoUrl;
+  }
+};
+
+
 export default function FeedScroller({
   items,
   promptLabel,
@@ -56,6 +71,8 @@ export default function FeedScroller({
   const [currentIndex, setCurrentIndex] = useState(safeInitialIndex);
   const [offset, setOffset] = useState(0);
   const [transitionEnabled, setTransitionEnabled] = useState(true);
+  const [tikTokUnmutedIndices, setTikTokUnmutedIndices] = useState<Set<number>>(new Set());
+
   const wheelDeltaRef = useRef(0);
   const wheelActiveRef = useRef(false);
   const wheelTriggeredRef = useRef(false);
@@ -291,24 +308,6 @@ export default function FeedScroller({
     });
   }, [currentIndex, visibleIndices]);
 
-  const getTikTokEmbedUrl = (videoUrl: string) => {
-    try {
-      // 1. Extract the Video ID. 
-      // This regex looks for a long string of digits at the end of the URL 
-      // or after 'video/' or 'v2/'
-      const idMatch = videoUrl.match(/(?:\/video\/|\/v2\/|_)(\d+)/);
-      const videoId = idMatch ? idMatch[1] : null;
-
-      if (!videoId) return videoUrl;
-
-      // 2. Return the 'player/v1' URL.
-      // This endpoint explicitly accepts autoplay parameters.
-      return `https://www.tiktok.com/player/v1/${videoId}?autoplay=1&loop=1&play_button=1`;    
-    } catch (e) {
-      return videoUrl;
-    }
-  };
-
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
@@ -366,14 +365,9 @@ export default function FeedScroller({
                 {item.isEmbed ? (
                   isTikTokEmbed(item.videoUrl) ? (
                     index === currentIndex ? (
-                      <iframe
-                        className="h-[60vh] w-full overflow-hidden"
-                        src={getTikTokEmbedUrl(item.videoUrl)}
-                        title={item.title}
-                        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; "
-                        allowFullScreen
-                        scrolling="no"
-                        frameBorder="0"
+                      <TikTokPlayer 
+                        url={item.videoUrl} 
+                        isActive={index === currentIndex} 
                       />
                     ) : (
                       <div className="h-[60vh] w-full bg-black/20" />
