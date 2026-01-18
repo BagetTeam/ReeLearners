@@ -41,7 +41,7 @@ def get_youtube_searcher():
     global youtube_searcher
     if youtube_searcher is None:
         try:
-            from realVideos.realVideos import YouTubeShortsSearcher
+            from realVideos import YouTubeShortsSearcher
 
             youtube_api_key = os.getenv("YOUTUBE_API_KEY")
             gemini_api_key = os.getenv("GEMINI_API_KEY")  # Get Gemini key
