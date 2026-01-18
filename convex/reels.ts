@@ -1,6 +1,7 @@
 import { action, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
+import { ApifyClient } from "apify-client";
 
 const reelStatus = v.union(
   v.literal("pending"),
@@ -142,13 +143,13 @@ export const fetchForPrompt = action({
     url.searchParams.set("query", args.prompt);
     url.searchParams.set("max_results", String(args.limit ?? 8));
 
-    const response = await fetch(url.toString());
-    if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(`Video search failed: ${response.status} ${detail}`);
+    const youtubeResponse = await fetch(url.toString());
+    if (!youtubeResponse.ok) {
+      const detail = await youtubeResponse.text();
+      throw new Error(`Video search failed: ${youtubeResponse.status} ${detail}`);
     }
 
-    const payload = (await response.json()) as {
+    const youtubePayload = (await youtubeResponse.json()) as {
       videos?: Array<{
         video_id?: string;
         title?: string;
@@ -157,11 +158,11 @@ export const fetchForPrompt = action({
       }>;
     };
 
-    const videos = payload.videos ?? [];
+    const youtubeVideos = youtubePayload.videos ?? [];
     let inserted = 0;
 
     const basePosition = Date.now();
-    for (const [index, video] of videos.entries()) {
+    for (const [index, video] of youtubeVideos.entries()) {
       const videoUrl = video.embed_url ?? video.watch_url;
       if (!videoUrl) {
         continue;
@@ -178,9 +179,82 @@ export const fetchForPrompt = action({
         sourceReference: video.video_id ?? undefined,
         metadata: {
           watchUrl: video.watch_url ?? undefined,
+          provider: "youtube",
         },
       });
       inserted += 1;
+    }
+
+    const apifyToken = process.env.APIFY_TOKEN;
+    const apifyActor =
+      process.env.APIFY_TIKTOK_ACTOR_ID ?? "clockworks/tiktok-scraper";
+
+    if (apifyToken) {
+      try {
+        const tags = args.prompt
+          .split(/\s+/)
+          .map((word) => word.replace(/[^a-zA-Z0-9_]/g, ""))
+          .filter(Boolean)
+          .slice(0, 3);
+
+        const apifyInput = {
+          commentsPerPost: 0,
+          excludePinnedPosts: false,
+          hashtags: tags.length ? tags : ["fyp"],
+          maxFollowersPerProfile: 0,
+          maxFollowingPerProfile: 0,
+          maxRepliesPerComment: 0,
+          proxyCountryCode: "None",
+          resultsPerPage: args.limit ?? 5,
+          scrapeRelatedVideos: false,
+          shouldDownloadAvatars: false,
+          shouldDownloadCovers: false,
+          shouldDownloadMusicCovers: false,
+          shouldDownloadSlideshowImages: false,
+          shouldDownloadSubtitles: false,
+          shouldDownloadVideos: false,
+        };
+
+        const client = new ApifyClient({ token: apifyToken });
+        const run = await client.actor(apifyActor).call(apifyInput);
+        const dataset = await client.dataset(run.defaultDatasetId).listItems();
+        const apifyItems = dataset.items as Array<{
+          text?: string;
+          webVideoUrl?: string;
+          "authorMeta.name"?: string;
+          playCount?: number;
+        }>;
+
+        for (const [index, item] of apifyItems.entries()) {
+          const webUrl = item.webVideoUrl;
+          if (!webUrl) continue;
+          const match = webUrl.match(/\/video\/(\d+)/);
+          const videoId = match?.[1];
+          const embedUrl = videoId
+            ? `https://www.tiktok.com/embed/v2/${videoId}`
+            : webUrl;
+
+          await ctx.runMutation(api.reels.addToFeed, {
+            feedId: args.feedId,
+            sourceType: "external",
+            position: basePosition + youtubeVideos.length + index,
+            status: "ready",
+            videoUrl: embedUrl,
+            title: item.text ?? "TikTok clip",
+            description: args.prompt,
+            sourceReference: videoId ? `tiktok:${videoId}` : undefined,
+            metadata: {
+              watchUrl: webUrl,
+              provider: "tiktok",
+              author: item["authorMeta.name"] ?? undefined,
+              playCount: item.playCount ?? undefined,
+            },
+          });
+          inserted += 1;
+        }
+      } catch (error) {
+        console.error("TikTok fetch failed", error);
+      }
     }
 
     await ctx.runMutation(api.feeds.updateStatus, {

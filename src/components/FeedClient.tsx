@@ -117,7 +117,10 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
           source,
           description: reel.description ?? feed?.prompt ?? "Prompt feed",
           videoUrl: reel.videoUrl ?? "",
-          isEmbed: reel.videoUrl?.includes("youtube.com/embed") ?? false,
+          isEmbed:
+            reel.videoUrl?.includes("youtube.com/embed") ||
+            reel.videoUrl?.includes("tiktok.com/embed") ||
+            false,
         };
       });
   }, [feed, reels]);
