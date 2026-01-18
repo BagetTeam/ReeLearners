@@ -195,6 +195,96 @@ export const getById = query({
   },
 });
 
+export const fetchTikTokForPrompt = action({
+  args: {
+    feedId: v.id("feeds"),
+    prompt: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const baseUrl =
+      process.env.VIDEO_API_URL ?? process.env.NEXT_PUBLIC_VIDEO_API_URL;
+
+    if (!baseUrl) {
+      throw new Error("VIDEO_API_URL not set");
+    }
+
+    const feed = await ctx.runQuery(api.feeds.getById, { feedId: args.feedId });
+    if (!feed) {
+      throw new Error("Feed not found");
+    }
+
+    const url = new URL("/search", baseUrl);
+    url.searchParams.set("query", args.prompt);
+    url.searchParams.set("max_results", String(args.limit ?? 8));
+    url.searchParams.set("sources", "tiktok");
+
+    const response = await fetch(url.toString());
+    if (!response.ok) {
+      const detail = await response.text();
+      throw new Error(`Video search failed: ${response.status} ${detail}`);
+    }
+
+    const payload = (await response.json()) as {
+      videos?: Array<{
+        video_id?: string;
+        title?: string;
+        watch_url?: string;
+        embed_url?: string;
+        source?: string;
+      }>;
+    };
+
+    const tiktokVideos = (payload.videos ?? []).map((video) => ({
+      ...video,
+      source: video.source ?? "tiktok",
+    }));
+
+    const existing = await ctx.runQuery(api.reels.listForFeed, {
+      feedId: args.feedId,
+    });
+    const ordered = [...existing].sort((a, b) => a.position - b.position);
+    const lastSeenIndex = feed.lastSeenIndex ?? 0;
+    const currentPosition = ordered[lastSeenIndex]?.position ?? Date.now();
+    const remainingPositions = ordered
+      .slice(lastSeenIndex + 1)
+      .map((reel) => reel.position);
+
+    let inserted = 0;
+    for (const [index, video] of tiktokVideos.entries()) {
+      const videoUrl = video.embed_url ?? video.watch_url;
+      if (!videoUrl) {
+        continue;
+      }
+
+      const targetIndex = index * 2;
+      const nextPosition = remainingPositions[targetIndex];
+      const position =
+        nextPosition !== undefined
+          ? (currentPosition + nextPosition) / 2 + index / 1000
+          : currentPosition + 1 + index;
+
+      await ctx.runMutation(api.reels.addToFeed, {
+        feedId: args.feedId,
+        sourceType: "external",
+        position,
+        status: "ready",
+        videoUrl,
+        title: video.title ?? "TikTok clip",
+        description: args.prompt,
+        sourceReference: video.video_id ?? undefined,
+        metadata: {
+          watchUrl: video.watch_url ?? undefined,
+          provider: "tiktok",
+        },
+      });
+      inserted += 1;
+    }
+
+    return { inserted };
+  },
+});
+
 export const fetchForPrompt = action({
   args: {
     feedId: v.id("feeds"),
@@ -214,34 +304,45 @@ export const fetchForPrompt = action({
       throw new Error("VIDEO_API_URL not set");
     }
 
-    const url = new URL("/search", baseUrl);
-    url.searchParams.set("query", args.prompt);
-    url.searchParams.set("max_results", String(args.limit ?? 8));
+    const fetchVideos = async (source: string) => {
+      const url = new URL("/search", baseUrl);
+      url.searchParams.set("query", args.prompt);
+      url.searchParams.set("max_results", String(args.limit ?? 8));
+      url.searchParams.set("sources", source);
 
-    const response = await fetch(url.toString());
-    if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(`Video search failed: ${response.status} ${detail}`);
-    }
+      const response = await fetch(url.toString());
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(`Video search failed: ${response.status} ${detail}`);
+      }
 
-    const payload = (await response.json()) as {
-      videos?: Array<{
-        video_id?: string;
-        title?: string;
-        watch_url?: string;
-        embed_url?: string;
-      }>;
+      const payload = (await response.json()) as {
+        videos?: Array<{
+          video_id?: string;
+          title?: string;
+          watch_url?: string;
+          embed_url?: string;
+          source?: string;
+        }>;
+      };
+
+      return payload.videos ?? [];
     };
 
-    const videos = payload.videos ?? [];
-    let inserted = 0;
+    const youtubeVideos = await fetchVideos("youtube");
+    const allVideos = youtubeVideos.map((video) => ({
+      ...video,
+      source: video.source ?? "youtube",
+    }));
 
+    let inserted = 0;
     const basePosition = Date.now();
-    for (const [index, video] of videos.entries()) {
+    for (const [index, video] of allVideos.entries()) {
       const videoUrl = video.embed_url ?? video.watch_url;
       if (!videoUrl) {
         continue;
       }
+      const provider = video.source ?? "youtube";
 
       const result = await ctx.runMutation(api.reels.addToFeed, {
         feedId: args.feedId,
@@ -254,12 +355,15 @@ export const fetchForPrompt = action({
         sourceReference: video.video_id ?? undefined,
         metadata: {
           watchUrl: video.watch_url ?? undefined,
+          provider,
         },
       });
       if (result.isNew) {
         inserted += 1;
       }
     }
+
+    // TikTok fetch happens asynchronously in a separate action.
 
     await ctx.runMutation(api.feeds.updateStatus, {
       feedId: args.feedId,

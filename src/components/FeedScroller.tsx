@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import TikTokPlayer from "./TikTokPlayer";
 
 declare global {
   interface Window {
@@ -40,6 +41,21 @@ const getYouTubeId = (url: string) => {
   return match?.[1] ?? null;
 };
 
+const isTikTokEmbed = (url: string) => url.includes("tiktok.com/embed");
+
+const getTikTokEmbedUrl = (videoUrl: string) => {
+  try {
+    const idMatch = videoUrl.match(/(?:\/video\/|\/v2\/|_)(\d+)/);
+    const videoId = idMatch ? idMatch[1] : null;
+
+    if (!videoId) return videoUrl;
+
+    return `https://www.tiktok.com/player/v1/${videoId}?autoplay=1&loop=1&play_button=1`;
+  } catch (e) {
+    return videoUrl;
+  }
+};
+
 export default function FeedScroller({
   items,
   promptLabel,
@@ -54,6 +70,10 @@ export default function FeedScroller({
   const [currentIndex, setCurrentIndex] = useState(safeInitialIndex);
   const [offset, setOffset] = useState(0);
   const [transitionEnabled, setTransitionEnabled] = useState(true);
+  const [tikTokUnmutedIndices, setTikTokUnmutedIndices] = useState<Set<number>>(
+    new Set(),
+  );
+
   const wheelDeltaRef = useRef(0);
   const wheelActiveRef = useRef(false);
   const wheelTriggeredRef = useRef(false);
@@ -237,6 +257,9 @@ export default function FeedScroller({
     if (!ytReady) return;
     visibleIndices.forEach((index) => {
       const item = items[index];
+      if (item?.isEmbed && isTikTokEmbed(item.videoUrl)) {
+        return;
+      }
       if (!item?.isEmbed) return;
       if (ytPlayerRefs.current.has(index)) return;
       const container = ytContainerRefs.current.get(index);
@@ -289,6 +312,12 @@ export default function FeedScroller({
     });
   }, [currentIndex, visibleIndices]);
 
+  const filterOutTitle = (title: string) => {
+    // remove all tags containing hashtags and its following text in the title
+    title = title.substring(0, title.indexOf("#"));
+    return title.trim();
+  };
+
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <div className="flex items-center justify-between border-b border-border px-6 py-4 border-(--muted)">
@@ -338,23 +367,33 @@ export default function FeedScroller({
                 <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                   {item.source}
                 </p>
-                <h2 className="text-base font-semibold">{item.title}</h2>
-                <p className="text-sm text-muted-foreground">
-                  {item.description}
-                </p>
+                <h2 className="text-base font-semibold">
+                  {filterOutTitle(item.title)}
+                </h2>
               </div>
               <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl border-(--muted)">
                 {item.isEmbed ? (
-                  <div
-                    ref={(element) => {
-                      if (element) {
-                        ytContainerRefs.current.set(index, element);
-                      } else {
-                        ytContainerRefs.current.delete(index);
-                      }
-                    }}
-                    className="h-[60vh] w-full"
-                  />
+                  isTikTokEmbed(item.videoUrl) ? (
+                    index === currentIndex ? (
+                      <TikTokPlayer
+                        url={item.videoUrl}
+                        isActive={index === currentIndex}
+                      />
+                    ) : (
+                      <div className="h-[60vh] w-full bg-black/20" />
+                    )
+                  ) : (
+                    <div
+                      ref={(element) => {
+                        if (element) {
+                          ytContainerRefs.current.set(index, element);
+                        } else {
+                          ytContainerRefs.current.delete(index);
+                        }
+                      }}
+                      className="h-[60vh] w-full"
+                    />
+                  )
                 ) : (
                   <video
                     ref={(element) => {

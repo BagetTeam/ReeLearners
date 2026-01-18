@@ -25,6 +25,7 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
   const upsertUser = useMutation(api.users.upsert);
   const updateProgress = useMutation(api.feeds.updateProgress);
   const fetchForPrompt = useAction(api.reels.fetchForPrompt);
+  const fetchTikTokForPrompt = useAction(api.reels.fetchTikTokForPrompt);
   const recordView = useMutation(api.stats.recordView);
   const feedId = useMemo(
     () => (feedIdParam ? (feedIdParam as Id<"feeds">) : null),
@@ -49,6 +50,7 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
   const fetchMoreRef = useRef(false);
   const lastFetchLengthRef = useRef(0);
   const streakTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tiktokFetchRef = useRef(false);
 
   useEffect(() => {
     if (isLoading) return;
@@ -117,10 +119,27 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
           source,
           description: reel.description ?? feed?.prompt ?? "Prompt feed",
           videoUrl: reel.videoUrl ?? "",
-          isEmbed: reel.videoUrl?.includes("youtube.com/embed") ?? false,
+          isEmbed:
+            reel.videoUrl?.includes("youtube.com/embed") ||
+            reel.videoUrl?.includes("tiktok.com/embed") ||
+            false,
         };
       });
   }, [feed, reels]);
+
+  useEffect(() => {
+    if (!feedId || !feed || tiktokFetchRef.current) return;
+    if (!items.length) return;
+    tiktokFetchRef.current = true;
+    void fetchTikTokForPrompt({
+      feedId,
+      prompt: feed.prompt,
+      limit: FEED_BATCH_SIZE,
+    }).catch((err) => {
+      tiktokFetchRef.current = false;
+      setError(err instanceof Error ? err.message : "Failed to fetch TikTok videos");
+    });
+  }, [feed, feedId, fetchTikTokForPrompt, items.length]);
 
   useEffect(() => {
     if (!feedId || reels === undefined || !feed) return;
