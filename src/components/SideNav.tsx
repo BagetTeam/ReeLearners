@@ -14,6 +14,7 @@ import {
   SidebarGroup,
   SidebarGroupLabel,
   SidebarHeader,
+  SidebarMenuAction,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -46,7 +47,8 @@ export default function SideNav() {
         }
         const id = await upsertUser({
           auth0Id: user.sub,
-          email: user.email ?? `${user.sub.replace("|", "_")}@reelearners.local`,
+          email:
+            user.email ?? `${user.sub.replace("|", "_")}@reelearners.local`,
           name: user.name ?? user.nickname ?? "ReeLearner",
           avatarUrl: user.picture ?? undefined,
         });
@@ -59,10 +61,7 @@ export default function SideNav() {
     void run();
   }, [isLoading, upsertUser, user]);
 
-  const feeds = useQuery(
-    api.feeds.listByUser,
-    userId ? { userId } : "skip",
-  );
+  const feeds = useQuery(api.feeds.listByUser, userId ? { userId } : "skip");
 
   const handleDelete = async (feedId: Id<"feeds">) => {
     setDeletingId(feedId);
@@ -171,19 +170,17 @@ export default function SideNav() {
                   isLoading={deletingId === feed._id}
                   onConfirm={() => handleDelete(feed._id)}
                   trigger={
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label="Delete prompt"
-                          disabled={deletingId === feed._id}
-                          className="text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground peer-hover/menu-button:text-sidebar-accent-foreground absolute top-1.5 right-1 flex aspect-square w-5 items-center justify-center rounded-md p-0 outline-hidden transition-transform opacity-0 group-hover/menu-item:opacity-100 focus-visible:opacity-100 disabled:cursor-not-allowed disabled:opacity-50 group-data-[collapsible=icon]:hidden"
-                        >
-                          <Trash2Icon className="h-4 w-4" />
-                        </button>
-                      </TooltipTrigger>
-                      <TooltipContent side="left">Delete</TooltipContent>
-                    </Tooltip>
+                    <SidebarMenuAction asChild showOnHover>
+                      <button
+                        type="button"
+                        aria-label="Delete prompt"
+                        title="Delete"
+                        disabled={deletingId === feed._id}
+                        className="disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <Trash2Icon className="h-4 w-4" />
+                      </button>
+                    </SidebarMenuAction>
                   }
                 />
               </SidebarMenuItem>

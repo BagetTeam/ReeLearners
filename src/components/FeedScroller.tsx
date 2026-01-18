@@ -313,9 +313,11 @@ export default function FeedScroller({
   }, [currentIndex, visibleIndices]);
 
   const filterOutTitle = (title: string) => {
-    // remove all tags containing hashtags and its following text in the title
-    title = title.substring(0, title.indexOf("#"));
-    return title.trim();
+    // Remove trailing hashtag blocks but keep full title when no hashtags exist.
+    const hashIndex = title.indexOf("#");
+    const trimmed =
+      hashIndex > 0 ? title.slice(0, hashIndex).trim() : title.trim();
+    return trimmed || title.trim();
   };
 
   return (

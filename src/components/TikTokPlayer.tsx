@@ -1,5 +1,3 @@
-import { useCallback, useEffect, useState } from "react";
-
 type TikTokPlayerProps = {
   url: string;
   isActive: boolean;
@@ -24,7 +22,7 @@ export default function TikTokPlayer({
     return <div className="h-[60vh] w-full bg-black/20" />;
   }
 
-    const embedUrl = `https://www.tiktok.com/player/v1/${videoId}?autoplay=1&loop=1&play_button=1`;
+  const embedUrl = `https://www.tiktok.com/player/v1/${videoId}?autoplay=1&loop=1&play_button=1&muted=0&volume=1`;
 
   return (
     <div className="relative h-[60vh] w-full overflow-hidden">
