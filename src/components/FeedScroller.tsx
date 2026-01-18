@@ -291,6 +291,25 @@ export default function FeedScroller({
     });
   }, [currentIndex, visibleIndices]);
 
+  const getTikTokEmbedUrl = (videoUrl: string) => {
+    try {
+      // 1. Extract the Video ID. 
+      // This regex looks for a long string of digits at the end of the URL 
+      // or after 'video/' or 'v2/'
+      const idMatch = videoUrl.match(/(?:\/video\/|\/v2\/|_)(\d+)/);
+      const videoId = idMatch ? idMatch[1] : null;
+
+      if (!videoId) return videoUrl;
+
+      // 2. Return the 'player/v1' URL.
+      // This endpoint explicitly accepts autoplay parameters.
+      return `https://www.tiktok.com/player/v1/${videoId}?autoplay=1&muted=1&loop=1&controls=0`; 
+    } catch (e) {
+      return videoUrl;
+    }
+  };
+
+
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
       <div className="flex items-center justify-between border-b border-border px-6 py-4 border-(--muted)">
@@ -346,13 +365,19 @@ export default function FeedScroller({
               <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl border-(--muted)">
                 {item.isEmbed ? (
                   isTikTokEmbed(item.videoUrl) ? (
-                    <iframe
-                      className="h-[60vh] w-full"
-                      src={`${item.videoUrl}?autoplay=1&loop=1`}
-                      title={item.title}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                    />
+                    index === currentIndex ? (
+                      <iframe
+                        className="h-[60vh] w-full overflow-hidden"
+                        src={getTikTokEmbedUrl(item.videoUrl)}
+                        title={item.title}
+                        allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; "
+                        allowFullScreen
+                        scrolling="no"
+                        frameBorder="0"
+                      />
+                    ) : (
+                      <div className="h-[60vh] w-full bg-black/20" />
+                    )
                   ) : (
                     <div
                       ref={(element) => {
