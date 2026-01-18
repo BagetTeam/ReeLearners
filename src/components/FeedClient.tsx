@@ -14,13 +14,14 @@ type FeedClientProps = {
   feedIdParam: string;
 };
 
-export default function FeedClient({ feedIdParam }: FeedClientProps) {
+export default function FeedClient({ feedIdParam }: FeedClientProps) {  
   const { user, isLoading } = useUser();
   const router = useRouter();
   const [userId, setUserId] = useState<Id<"users"> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isHydrating, setIsHydrating] = useState(false);
-
+  const [currentIndex, setCurrentIndex] = useState(0);
+  
   const upsertUser = useMutation(api.users.upsert);
   const updateProgress = useMutation(api.feeds.updateProgress);
   const fetchForPrompt = useAction(api.reels.fetchForPrompt);
@@ -36,7 +37,14 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
     api.reels.listForFeed,
     feedId ? { feedId } : "skip",
   );
+  const lastSeenIndex = useMemo(
+    () => feed?.lastSeenIndex ?? 0,
+    [feed?.lastSeenIndex],
+  );
 
+  useEffect(() => {
+    setCurrentIndex(lastSeenIndex);
+  }, [lastSeenIndex]);
   const userInitRef = useRef(false);
   const hydrateRef = useRef(false);
   const progressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -85,8 +93,8 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
 
   useEffect(() => {
     if (!feedId || reels === undefined || !feed) return;
-    if (reels.length > 0 || hydrateRef.current) return;
-
+    if (reels.length - (currentIndex + 1) > 0 || hydrateRef.current) return;
+    console.log("hydrating", reels.length - (currentIndex + 1));
     hydrateRef.current = true;
     setIsHydrating(true);
 
@@ -107,7 +115,7 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
     };
 
     void run();
-  }, [feed, feedId, fetchForPrompt, reels]);
+  }, [feed, feedId, fetchForPrompt, reels, currentIndex]);
 
   const handleIndexChange = useCallback(
     (nextIndex: number) => {
@@ -222,8 +230,9 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
       key={feedId ?? "feed"}
       items={items}
       promptLabel={feed?.prompt ?? "Your prompt"}
-      initialIndex={feed?.lastSeenIndex ?? 0}
       onIndexChange={handleIndexChange}
+      currentIndex={currentIndex}
+      setCurrentIndex={setCurrentIndex}
     />
   );
 }

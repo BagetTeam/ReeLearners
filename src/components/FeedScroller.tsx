@@ -1,6 +1,8 @@
 "use client";
 
+import { useAction } from "convex/react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { api } from "../../convex/_generated/api";
 
 declare global {
   interface Window {
@@ -26,6 +28,8 @@ type FeedScrollerProps = {
   promptLabel: string;
   initialIndex?: number;
   onIndexChange?: (nextIndex: number) => void;
+  currentIndex: number;
+  setCurrentIndex: (nextIndex: number) => void;
 };
 
 const TRANSITION_MS = 360;
@@ -42,14 +46,10 @@ const getYouTubeId = (url: string) => {
 export default function FeedScroller({
   items,
   promptLabel,
-  initialIndex = 0,
   onIndexChange,
+  currentIndex,
+  setCurrentIndex,
 }: FeedScrollerProps) {
-  const safeInitialIndex = Math.min(
-    Math.max(initialIndex, 0),
-    Math.max(items.length - 1, 0),
-  );
-  const [currentIndex, setCurrentIndex] = useState(safeInitialIndex);
   const [offset, setOffset] = useState(0);
   const [transitionEnabled, setTransitionEnabled] = useState(true);
   const wheelDeltaRef = useRef(0);
