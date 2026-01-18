@@ -8,7 +8,7 @@ from typing import List, Optional
 from dotenv import load_dotenv
 
 # Configure logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "realVideos")))
@@ -137,7 +137,7 @@ async def search_videos(
     Returns:
         List of videos with embedded links
     """
-    print(f"Searching for {query}")
+
     searcher = get_youtube_searcher()
     if not searcher:
         raise HTTPException(

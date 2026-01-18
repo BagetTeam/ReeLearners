@@ -126,14 +126,6 @@ export const fetchForPrompt = action({
     limit: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
-    const existing = await ctx.runQuery(api.reels.listForFeed, {
-      feedId: args.feedId,
-      limit: 1,
-    });
-    if (existing.length > 0) {
-      return { inserted: 0, skipped: true };
-    }
-
     await ctx.runMutation(api.feeds.updateStatus, {
       feedId: args.feedId,
       status: "curating",
@@ -196,6 +188,6 @@ export const fetchForPrompt = action({
       status: inserted > 0 ? "ready" : "pending",
     });
 
-    return { inserted, skipped: false };
+    return { inserted };
   },
 });
