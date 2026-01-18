@@ -31,7 +31,8 @@ export const addToFeed = mutation({
   handler: async (ctx, args) => {
     const feed = await ctx.db.get(args.feedId);
     if (!feed) {
-      throw new Error("Feed not found");
+      console.warn("Feed not found for addToFeed", args.feedId);
+      return { reelId: null, statusId: null, isNew: false, skipped: true };
     }
 
     const now = Date.now();
