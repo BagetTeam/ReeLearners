@@ -21,6 +21,7 @@ INSTALLATION INSTRUCTIONS:
    GEMINI_API_KEY=your_gemini_key_here
 """
 
+import logging
 import os
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -30,6 +31,9 @@ import google.generativeai as genai
 import random
 import json
 
+
+logger = logging.getLogger(__name__)
+
 load_dotenv()
 
 
@@ -38,42 +42,44 @@ class YouTubeShortsSearcher:
     A class to search for YouTube Shorts and get playback URLs.
     Includes Gemini Flash for generating multiple search topics and aggregating results.
     """
-    
+
     def __init__(self, api_key: str, gemini_api_key: Optional[str] = None):
         """
         Initialize the YouTube Shorts searcher.
-        
+
         Args:
             api_key: Your YouTube Data API v3 key
             gemini_api_key: Your Gemini API key (optional, for prompt optimization)
         """
         self.api_key = api_key
-        self.youtube = build('youtube', 'v3', developerKey=api_key)
-        
+        self.youtube = build("youtube", "v3", developerKey=api_key)
+
         # Initialize Gemini if API key is provided
         self.gemini_enabled = False
         if gemini_api_key:
             try:
                 genai.configure(api_key=gemini_api_key)
-                self.model = genai.GenerativeModel('gemini-2.0-flash-thinking-exp-1219')
+                self.model = genai.GenerativeModel("gemini-2.0-flash-thinking-exp-1219")
                 self.gemini_enabled = True
             except Exception as e:
-                print(f"Warning: Failed to initialize Gemini: {e}")
-    
-    def _generate_search_topics(self, user_prompt: str, num_topics: int = 4) -> List[str]:
+                logger.error(f"Warning: Failed to initialize Gemini: {e}")
+
+    def _generate_search_topics(
+        self, user_prompt: str, num_topics: int = 4
+    ) -> List[str]:
         """
         Use Gemini to generate multiple search topics from a user prompt.
-        
+
         Args:
             user_prompt: Natural language prompt from user
             num_topics: Number of search topics to generate (default: 3)
-            
+
         Returns:
             List of search keywords/topics
         """
         if not self.gemini_enabled:
             return [user_prompt]
-        
+
         system_instruction = f"""You are a YouTube search optimizer. 
 Given a user's prompt, generate {num_topics} different search queries that will help find diverse and relevant YouTube Shorts.
 
@@ -100,106 +106,123 @@ You: ["beginner workout", "home fitness", "exercise tutorial"]"""
             response = self.model.generate_content(
                 f"{system_instruction}\n\nUser: {user_prompt}\nYou:"
             )
-            
+
             # Extract JSON from response
             response_text = response.text.strip()
-            
+
             # Remove markdown code blocks if present
-            if response_text.startswith('```'):
-                lines = response_text.split('\n')
-                response_text = '\n'.join(lines[1:-1])
-            
+            if response_text.startswith("```"):
+                lines = response_text.split("\n")
+                response_text = "\n".join(lines[1:-1])
+
             topics = json.loads(response_text)
-            print(f"[Gemini] Generated {len(topics)} search topics from '{user_prompt}':")
+            logger.info(
+                f"[Gemini] Generated {len(topics)} search topics from '{user_prompt}':"
+            )
             for i, topic in enumerate(topics, 1):
-                print(f"  {i}. {topic}")
-            
+                logger.info(f"  {i}. {topic}")
+
             return topics
-            
+
         except Exception as e:
-            print(f"[Gemini] Error generating topics: {e}")
+            logger.error(f"[Gemini] Error generating topics: {e}")
             # Fallback to single search with original prompt
             return [user_prompt]
-    
-    def _search_single_topic(self, query: str, max_results: int=15) -> List[Dict]:
+
+    def _search_single_topic(self, query: str, max_results: int = 15) -> List[Dict]:
         """
         Search for YouTube Shorts for a single topic.
-        
+
         Args:
             query: Search query
             max_results: Maximum number of results
-            
+
         Returns:
             List of video dictionaries
         """
         try:
             # Search for short videos
-            search_response = self.youtube.search().list(
-                q=query,
-                part='id,snippet',
-                type='video',
-                videoDuration='short',
-                maxResults=max_results
-            ).execute()
-            
-            video_ids = [item['id']['videoId'] for item in search_response.get('items', [])]
-            
+            search_response = (
+                self.youtube.search()
+                .list(
+                    q=query,
+                    part="id,snippet",
+                    type="video",
+                    videoDuration="short",
+                    maxResults=max_results,
+                )
+                .execute()
+            )
+
+            video_ids = [
+                item["id"]["videoId"] for item in search_response.get("items", [])
+            ]
+
             if not video_ids:
                 return []
-            
+
             # Get video duration to filter actual Shorts (≤60 seconds)
-            videos_response = self.youtube.videos().list(
-                part='snippet,contentDetails',
-                id=','.join(video_ids)
-            ).execute()
-            
+            videos_response = (
+                self.youtube.videos()
+                .list(part="snippet,contentDetails", id=",".join(video_ids))
+                .execute()
+            )
+
             shorts = []
-            for video in videos_response.get('items', []):
+            for video in videos_response.get("items", []):
                 try:
                     # Safely extract video details with fallbacks
-                    video_id = video.get('id')
+                    video_id = video.get("id")
                     if not video_id:
                         continue
-                    
-                    duration = video.get('contentDetails', {}).get('duration')
+
+                    duration = video.get("contentDetails", {}).get("duration")
                     if not duration:
                         continue
-                    
+
                     duration_seconds = self._parse_duration(duration)
-                    
+
                     # Only include videos 60 seconds or less (actual Shorts)
                     if duration_seconds <= 60:
-                        title = video.get('snippet', {}).get('title', 'Untitled')
-                        shorts.append({
-                            'video_id': video_id,
-                            'title': title,
-                            'watch_url': f"https://www.youtube.com/shorts/{video_id}",
-                            'embed_url': f"https://www.youtube.com/embed/{video_id}",
-                        })
+                        title = video.get("snippet", {}).get("title", "Untitled")
+                        shorts.append(
+                            {
+                                "video_id": video_id,
+                                "title": title,
+                                "watch_url": f"https://www.youtube.com/shorts/{video_id}",
+                                "embed_url": f"https://www.youtube.com/embed/{video_id}",
+                            }
+                        )
                 except (KeyError, TypeError) as e:
                     # Skip malformed video entries
-                    print(f"[Warning] Skipping malformed video entry: {e}")
+                    logger.warning(f"Skipping malformed video entry: {e}")
                     continue
-            
+
             return shorts
-            
+
         except HttpError as e:
-            print(f"An HTTP error occurred for query '{query}': {e}")
+            logger.error(f"An HTTP error occurred for query '{query}': {e}")
             return []
         except Exception as e:
-            print(f"An unexpected error occurred for query '{query}': {e}")
+            logger.error(f"An unexpected error occurred for query '{query}': {e}")
             return []
-    
-    def search_shorts(self, prompt: str, max_results: int = 50, optimize_prompt: bool = True, num_topics: int = 5) -> List[Dict]:
+
+    def search_shorts(
+        self,
+        prompt: str,
+        max_results: int = 50,
+        optimize_prompt: bool = True,
+        num_topics: int = 5,
+    ) -> List[Dict]:
         """
         Search for YouTube Shorts based on a prompt using multiple search topics.
-        
+
         Args:
             prompt: Search query/prompt (can be natural language if Gemini is enabled)
             max_results: Total maximum number of results to return (default: 50)
             optimize_prompt: Whether to use Gemini to generate multiple topics (default: True)
             num_topics: Number of search topics to generate if optimizing (default: 4)
-            
+
         Returns:
             List of dictionaries with video_id, title, and playback URLs (mixed from all topics)
         """
@@ -209,69 +232,74 @@ You: ["beginner workout", "home fitness", "exercise tutorial"]"""
                 search_topics = self._generate_search_topics(prompt, num_topics)
             else:
                 search_topics = [prompt]
-            
+
             if not search_topics:
-                print("[Search] No search topics generated")
+                logger.info("[Search] No search topics generated")
                 return []
-            
+
             # Calculate results per topic (add buffer for deduplication)
             results_per_topic = max(1, (max_results // len(search_topics)) + 3)
-            
+
             # Search each topic
             all_results = []
             seen_video_ids = set()  # Track duplicates across topics
-            
-            print(f"\n[Search] Searching {len(search_topics)} topics, ~{results_per_topic} results each...")
-            
+
+            logger.info(
+                f"\n[Search] Searching {len(search_topics)} topics, ~{results_per_topic} results each..."
+            )
+
             for topic in search_topics:
-                print(f"[Search] Topic: '{topic}'")
+                logger.info(f"[Search] Topic: '{topic}'")
                 topic_results = self._search_single_topic(topic, results_per_topic)
-                
+
                 # Filter out duplicates
                 for video in topic_results:
-                    if video['video_id'] not in seen_video_ids:
+                    if video["video_id"] not in seen_video_ids:
                         all_results.append(video)
-                        seen_video_ids.add(video['video_id'])
-                
-                print(f"[Search] Found {len(topic_results)} shorts ({len(all_results)} unique total)")
-            
+                        seen_video_ids.add(video["video_id"])
+
+                logger.info(
+                    f"[Search] Found {len(topic_results)} shorts ({len(all_results)} unique total)"
+                )
+
             # Shuffle to mix results from different topics
             random.shuffle(all_results)
-            
+
             # Limit to max_results
             final_results = all_results[:max_results]
-            
-            print(f"\n[Search] Returning {len(final_results)} mixed results\n")
-            
+
+            logger.info(f"\n[Search] Returning {len(final_results)} mixed results\n")
+
             return final_results
         except Exception as e:
-            print(f"[Search] Error during search: {e}")
+            logger.error(f"[Search] Error during search: {e}")
             return []
-    
+
     def _parse_duration(self, duration: str) -> int:
         """Parse ISO 8601 duration format to seconds."""
         import re
-        pattern = r'PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?'
+
+        pattern = r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?"
         match = re.match(pattern, duration)
-        
+
         if not match:
             return 0
-        
+
         hours = int(match.group(1) or 0)
         minutes = int(match.group(2) or 0)
         seconds = int(match.group(3) or 0)
-        
+
         return hours * 3600 + minutes * 60 + seconds
-    
+
     def get_embed_html(self, video_id: str, width: int = 315, height: int = 560) -> str:
         """
         Generate HTML embed code for a YouTube Short.
-        
+
         Args:
             video_id: YouTube video ID
             width: Player width in pixels (default: 315)
             height: Player height in pixels (default: 560)
-            
+
         Returns:
             HTML iframe embed code
         """
@@ -284,41 +312,42 @@ You: ["beginner workout", "home fitness", "exercise tutorial"]"""
     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
     allowfullscreen>
 </iframe>'''
-    
+
     def print_results(self, shorts: List[Dict]):
         """Print search results with playback URLs."""
         if not shorts:
-            print("No YouTube Shorts found for this search.")
+            logger.info("No YouTube Shorts found for this search.")
             return
-        
-        print(f"\nFound {len(shorts)} YouTube Shorts:\n")
+
+        logger.info(f"\nFound {len(shorts)} YouTube Shorts:\n")
         for i, short in enumerate(shorts, 1):
-            print(f"{i}. {short['title']}")
-            print(f"   Watch: {short['watch_url']}")
-            print(f"   Embed: {short['embed_url']}")
-            print()
+            logger.info(f"{i}. {short['title']}")
+            logger.info(f"   Watch: {short['watch_url']}")
+            logger.info(f"   Embed: {short['embed_url']}")
+            logger.info("")
 
 
 # Example usage
 if __name__ == "__main__":
-    API_KEY = os.getenv('YOUTUBE_API_KEY')
-    GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-    
+    API_KEY = os.getenv("YOUTUBE_API_KEY")
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
     if not API_KEY:
-        print("Error: Please set YOUTUBE_API_KEY environment variable")
+        logger.error("Error: Please set YOUTUBE_API_KEY environment variable")
         exit(1)
-    
+
     # Initialize with both keys (Gemini is optional)
     searcher = YouTubeShortsSearcher(API_KEY, GEMINI_API_KEY)
-    
+
     # Example: Natural language prompt (will generate multiple search topics)
     long_prompt = "I want to learn about healthy cooking and meal preparation"
     results = searcher.search_shorts(long_prompt, max_results=50, num_topics=4)
-    
+
     # Display results
     searcher.print_results(results)
-    
+
     # Example: Get embed code for the first result
     if results:
-        print("\nEmbed code for first video:")
-        print(searcher.get_embed_html(results[0]['video_id']))
+        logger.info("\nEmbed code for first video:")
+        logger.info(searcher.get_embed_html(results[0]["video_id"]))
+

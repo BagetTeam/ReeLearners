@@ -41,7 +41,7 @@ def get_youtube_searcher():
     global youtube_searcher
     if youtube_searcher is None:
         try:
-            from realVideos import YouTubeShortsSearcher
+            from realVideos.realVideos import YouTubeShortsSearcher
 
             youtube_api_key = os.getenv("YOUTUBE_API_KEY")
             gemini_api_key = os.getenv("GEMINI_API_KEY")  # Get Gemini key
@@ -137,7 +137,7 @@ async def search_videos(
     Returns:
         List of videos with embedded links
     """
-    print(f"Searching for {query}")
+
     searcher = get_youtube_searcher()
     if not searcher:
         raise HTTPException(
