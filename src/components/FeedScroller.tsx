@@ -42,6 +42,8 @@ const getYouTubeId = (url: string) => {
 };
 
 const isTikTokEmbed = (url: string) => url.includes("tiktok.com/embed");
+const isTikTokVideoUrl = (url: string) =>
+  url.includes("tiktok") && !url.includes("youtube");
 
 const getTikTokEmbedUrl = (videoUrl: string) => {
   try {
@@ -174,6 +176,16 @@ export default function FeedScroller({
       goPrev();
     }
   };
+
+  const enableTikTokSound = useCallback((index: number) => {
+    setTikTokUnmutedIndices((prev) => {
+      if (prev.has(index)) return prev;
+      const next = new Set(prev);
+      next.add(index);
+      return next;
+    });
+    userInteractedRef.current = true;
+  }, []);
 
   useEffect(() => {
     onIndexChangeRef.current = onIndexChange;
@@ -380,6 +392,8 @@ export default function FeedScroller({
                       <TikTokPlayer
                         url={item.videoUrl}
                         isActive={index === currentIndex}
+                        canPlayWithSound={tikTokUnmutedIndices.has(index)}
+                        onEnableSound={() => enableTikTokSound(index)}
                       />
                     ) : (
                       <div className="h-[60vh] w-full bg-black/20" />
@@ -408,7 +422,7 @@ export default function FeedScroller({
                     className="h-[60vh] w-full object-cover"
                     src={item.videoUrl}
                     playsInline
-                    muted
+                    muted={!isTikTokVideoUrl(item.videoUrl)}
                     loop
                     controls
                     autoPlay={index === currentIndex}

@@ -1,11 +1,15 @@
 type TikTokPlayerProps = {
   url: string;
   isActive: boolean;
+  canPlayWithSound: boolean;
+  onEnableSound?: () => void;
 };
 
 export default function TikTokPlayer({
   url,
   isActive,
+  canPlayWithSound,
+  onEnableSound,
 }: TikTokPlayerProps) {
   const getVideoId = (src: string) => {
     try {
@@ -22,7 +26,24 @@ export default function TikTokPlayer({
     return <div className="h-[60vh] w-full bg-black/20" />;
   }
 
-  const embedUrl = `https://www.tiktok.com/player/v1/${videoId}?autoplay=1&loop=1&play_button=1&muted=0&volume=1`;
+  const baseEmbedUrl = url.includes("tiktok.com/embed")
+    ? url
+    : `https://www.tiktok.com/embed/v2/${videoId}`;
+  const autoplay = isActive ? "1" : "0";
+  const muted = canPlayWithSound ? "0" : "1";
+  const embedUrl = (() => {
+    try {
+      const embed = new URL(baseEmbedUrl);
+      embed.searchParams.set("autoplay", autoplay);
+      embed.searchParams.set("loop", "1");
+      embed.searchParams.set("play_button", "1");
+      embed.searchParams.set("muted", muted);
+      embed.searchParams.set("volume", "1");
+      return embed.toString();
+    } catch {
+      return `${baseEmbedUrl}?autoplay=${autoplay}&loop=1&play_button=1&muted=${muted}&volume=1`;
+    }
+  })();
 
   return (
     <div className="relative h-[60vh] w-full overflow-hidden">
@@ -34,6 +55,15 @@ export default function TikTokPlayer({
         scrolling="no"
         frameBorder="0"
       />
+      {!canPlayWithSound && (
+        <button
+          type="button"
+          onClick={onEnableSound}
+          className="absolute inset-0 flex items-center justify-center bg-black/40 text-sm font-semibold text-white"
+        >
+          Tap to play with sound
+        </button>
+      )}
     </div>
   );
 };
