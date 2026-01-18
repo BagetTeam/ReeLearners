@@ -226,11 +226,13 @@ async def search_videos(
                         "environment variable."
                     ),
                 )
-            videos.extend(
-                searcher.search_shorts(
-                    query, per_source_limit, optimize_prompt=optimize
-                )
+            youtube_results = searcher.search_shorts(
+                query, per_source_limit, optimize_prompt=optimize
             )
+            logger.info("YouTube results fetched: %s", len(youtube_results))
+            if not youtube_results:
+                logger.warning("YouTube search returned 0 results for '%s'", query)
+            videos.extend(youtube_results)
 
         if "tiktok" in requested_sources:
             searcher = get_tiktok_searcher()
@@ -242,7 +244,11 @@ async def search_videos(
                         "environment variable."
                     ),
                 )
-            videos.extend(searcher.search_videos(query, per_source_limit))
+            tiktok_results = searcher.search_videos(query, per_source_limit)
+            logger.info("TikTok results fetched: %s", len(tiktok_results))
+            if not tiktok_results:
+                logger.warning("TikTok search returned 0 results for '%s'", query)
+            videos.extend(tiktok_results)
 
         if "instagram" in requested_sources or "reels" in requested_sources:
             searcher = get_instagram_searcher()
