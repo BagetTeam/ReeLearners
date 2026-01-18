@@ -141,6 +141,7 @@ You: ["beginner workout", "home fitness", "exercise tutorial"]"""
             List of video dictionaries
         """
         try:
+            logger.debug(f"Searching for topic: {query}")
             # Search for short videos
             search_response = (
                 self.youtube.search()
