@@ -308,6 +308,11 @@ export default function FeedScroller({
     });
   }, [currentIndex, visibleIndices]);
 
+  const filterOutTitle = (title: string) => {
+      // remove all tags containing hashtags and its following text in the title
+      title = title.substring(0, title.indexOf('#'));
+      return title.trim();
+  };
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
@@ -358,8 +363,7 @@ export default function FeedScroller({
                 <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                   {item.source}
                 </p>
-                <h2 className="text-2xl font-semibold">{item.title}</h2>
-                <p className="text-sm text-muted-foreground">{item.description}</p>
+                <h2 className="text-2xl font-semibold">{filterOutTitle(item.title)}</h2>
               </div>
               <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl border-(--muted)">
                 {item.isEmbed ? (
