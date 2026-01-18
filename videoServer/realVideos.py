@@ -157,7 +157,9 @@ You: ["beginner workout", "home fitness", "exercise tutorial"]"""
             logger.debug(f"search_response: {json.dumps(search_response, indent=2)}")
 
             video_ids = [
-                item["id"]["videoId"] for item in search_response.get("items", [])
+                item["id"]["videoId"]
+                for item in search_response.get("items", [])
+                if "id" in item and "videoId" in item["id"]
             ]
 
             if not video_ids:
