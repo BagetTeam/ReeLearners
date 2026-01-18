@@ -251,6 +251,7 @@ You: ["beginner workout", "home fitness", "exercise tutorial"]"""
             for topic in search_topics:
                 logger.info(f"[Search] Topic: '{topic}'")
                 topic_results = self._search_single_topic(topic, results_per_topic)
+                logger.info(json.dumps(topic_results, indent=2))
 
                 # Filter out duplicates
                 for video in topic_results:
@@ -350,4 +351,3 @@ if __name__ == "__main__":
     if results:
         logger.info("\nEmbed code for first video:")
         logger.info(searcher.get_embed_html(results[0]["video_id"]))
-
