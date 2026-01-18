@@ -141,14 +141,15 @@ export const fetchForPrompt = action({
     const url = new URL("/search", baseUrl);
     url.searchParams.set("query", args.prompt);
     url.searchParams.set("max_results", String(args.limit ?? 8));
+    url.searchParams.set("sources", "tiktok");
 
-    const response = await fetch(url.toString());
-    if (!response.ok) {
-      const detail = await response.text();
-      throw new Error(`Video search failed: ${response.status} ${detail}`);
+    const youtubeResponse = await fetch(url.toString());
+    if (!youtubeResponse.ok) {
+      const detail = await youtubeResponse.text();
+      throw new Error(`Video search failed: ${youtubeResponse.status} ${detail}`);
     }
 
-    const payload = (await response.json()) as {
+    const youtubePayload = (await youtubeResponse.json()) as {
       videos?: Array<{
         video_id?: string;
         title?: string;
@@ -157,11 +158,11 @@ export const fetchForPrompt = action({
       }>;
     };
 
-    const videos = payload.videos ?? [];
+    const youtubeVideos = youtubePayload.videos ?? [];
     let inserted = 0;
 
     const basePosition = Date.now();
-    for (const [index, video] of videos.entries()) {
+    for (const [index, video] of youtubeVideos.entries()) {
       const videoUrl = video.embed_url ?? video.watch_url;
       if (!videoUrl) {
         continue;
@@ -178,10 +179,13 @@ export const fetchForPrompt = action({
         sourceReference: video.video_id ?? undefined,
         metadata: {
           watchUrl: video.watch_url ?? undefined,
+          provider: "youtube",
         },
       });
       inserted += 1;
     }
+
+    // TikTok fetch happens inside the video server (Apify-powered).
 
     await ctx.runMutation(api.feeds.updateStatus, {
       feedId: args.feedId,

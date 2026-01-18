@@ -1,6 +1,7 @@
 import sys
 import os
 import logging
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -11,10 +12,14 @@ from dotenv import load_dotenv
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "realVideos")))
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "AIVideos")))
+base_dir = Path(__file__).resolve().parent
+repo_root = base_dir.parent
+sys.path.append(str(base_dir / "realVideos"))
+sys.path.append(str(base_dir / "AIVideos"))
 
-load_dotenv()
+# Load env from repo root so .env.local is picked up when running videoServer.
+load_dotenv(dotenv_path=repo_root / ".env.local")
+load_dotenv(dotenv_path=repo_root / ".env")
 
 # Initialize FastAPI app FIRST (before YouTube initialization)
 app = FastAPI(
@@ -74,14 +79,14 @@ def get_tiktok_searcher():
         try:
             from socialVideos import TikTokVideoSearcher
 
-            access_token = os.getenv("TIKTOK_ACCESS_TOKEN")
-            base_url = os.getenv("TIKTOK_API_BASE_URL", "https://open.tiktokapis.com")
+            apify_token = os.getenv("APIFY_TOKEN")
+            actor_id = os.getenv("APIFY_TIKTOK_ACTOR_ID", "clockworks/tiktok-scraper")
 
-            if access_token:
-                tiktok_searcher = TikTokVideoSearcher(access_token, base_url=base_url)
-                logger.info("TikTok Searcher initialized")
+            if apify_token:
+                tiktok_searcher = TikTokVideoSearcher(apify_token, actor_id=actor_id)
+                logger.info("TikTok Searcher initialized (Apify)")
             else:
-                logger.warning("TIKTOK_ACCESS_TOKEN not set")
+                logger.warning("APIFY_TOKEN not set")
         except Exception as e:
             logger.error(f"Failed to initialize TikTok Searcher: {e}")
     return tiktok_searcher
@@ -189,11 +194,11 @@ async def search_videos(
 
     requested_sources = [
         item.strip().lower()
-        for item in (sources.split(",") if sources else ["youtube"])
+        for item in (sources.split(",") if sources else ["tiktok"])
         if item.strip()
     ]
     if not requested_sources:
-        requested_sources = ["youtube"]
+        requested_sources = ["tiktok"]
 
     if not query or len(query.strip()) == 0:
         raise HTTPException(status_code=400, detail="Query parameter is required")
@@ -211,21 +216,22 @@ async def search_videos(
         per_source_limit = max(1, max_results // max(1, len(requested_sources)))
         videos = []
 
-        if "youtube" in requested_sources:
-            searcher = get_youtube_searcher()
-            if not searcher:
-                raise HTTPException(
-                    status_code=503,
-                    detail=(
-                        "YouTube API not configured. Please set YOUTUBE_API_KEY "
-                        "environment variable."
-                    ),
-                )
-            videos.extend(
-                searcher.search_shorts(
-                    query, per_source_limit, optimize_prompt=optimize
-                )
-            )
+        # YouTube fetching disabled for TikTok-only debugging.
+        # if "youtube" in requested_sources:
+        #     searcher = get_youtube_searcher()
+        #     if not searcher:
+        #         raise HTTPException(
+        #             status_code=503,
+        #             detail=(
+        #                 "YouTube API not configured. Please set YOUTUBE_API_KEY "
+        #                 "environment variable."
+        #             ),
+        #         )
+        #     videos.extend(
+        #         searcher.search_shorts(
+        #             query, per_source_limit, optimize_prompt=optimize
+        #         )
+        #     )
 
         if "tiktok" in requested_sources:
             searcher = get_tiktok_searcher()
@@ -233,7 +239,7 @@ async def search_videos(
                 raise HTTPException(
                     status_code=503,
                     detail=(
-                        "TikTok API not configured. Please set TIKTOK_ACCESS_TOKEN "
+                        "TikTok scraper not configured. Please set APIFY_TOKEN "
                         "environment variable."
                     ),
                 )
