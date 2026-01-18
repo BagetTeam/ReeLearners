@@ -92,6 +92,25 @@ const schema = defineSchema({
     .index("by_reelId", ["reelId"])
     .index("by_user_reel", ["userId", "reelId"])
     .index("by_user_day", ["userId", "dayKey"]),
+
+  reelLikes: defineTable({
+    reelId: v.id("reels"),
+    userId: v.id("users"),
+    createdAt: v.number(),
+  })
+    .index("by_reelId", ["reelId"])
+    .index("by_userId", ["userId"])
+    .index("by_reel_user", ["reelId", "userId"]),
+
+  reelComments: defineTable({
+    reelId: v.id("reels"),
+    userId: v.id("users"),
+    body: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_reelId", ["reelId"])
+    .index("by_userId", ["userId"])
+    .index("by_reel_createdAt", ["reelId", "createdAt"]),
 });
 
 export default schema;

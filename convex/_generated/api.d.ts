@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as engagement from "../engagement.js";
 import type * as feeds from "../feeds.js";
 import type * as reels from "../reels.js";
 import type * as stats from "../stats.js";
@@ -20,6 +21,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  engagement: typeof engagement;
   feeds: typeof feeds;
   reels: typeof reels;
   stats: typeof stats;
