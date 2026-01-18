@@ -162,6 +162,8 @@ You: ["beginner workout", "home fitness", "exercise tutorial"]"""
                 if "id" in item and "videoId" in item["id"]
             ]
 
+            logger.debug(f"video_ids: {video_ids}")
+
             if not video_ids:
                 return []
 
