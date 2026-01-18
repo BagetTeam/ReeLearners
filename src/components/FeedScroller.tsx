@@ -89,6 +89,8 @@ export default function FeedScroller({
   const [optimisticLikeCount, setOptimisticLikeCount] = useState<number | null>(
     null,
   );
+  const [streakAnimating, setStreakAnimating] = useState(false);
+  const prevStreakRef = useRef(currentStreak);
 
   const wheelDeltaRef = useRef(0);
   const wheelActiveRef = useRef(false);
@@ -233,6 +235,18 @@ export default function FeedScroller({
     setOptimisticLiked(null);
     setOptimisticLikeCount(null);
   }, [engagement?.likedByUser, engagement?.likeCount]);
+
+  useEffect(() => {
+    if (currentStreak > prevStreakRef.current) {
+      setStreakAnimating(true);
+      const timer = setTimeout(() => {
+        setStreakAnimating(false);
+        prevStreakRef.current = currentStreak;
+      }, 600);
+      return () => clearTimeout(timer);
+    }
+    prevStreakRef.current = currentStreak;
+  }, [currentStreak]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -421,7 +435,11 @@ export default function FeedScroller({
           <h1 className="text-lg font-semibold">{promptLabel}</h1>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <div className="flex items-center gap-2 rounded-full border border-border px-3 py-1 border-(--muted) text-foreground">
+          <div
+            className={`flex items-center gap-2 rounded-full border border-border px-3 py-1 border-(--muted) text-foreground ${
+              streakAnimating ? "animate-streak-pop" : ""
+            }`}
+          >
             <span className="text-base">🔥</span>
             <span className="font-semibold">{currentStreak}</span>
           </div>
