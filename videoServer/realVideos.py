@@ -153,6 +153,7 @@ You: ["beginner workout", "home fitness", "exercise tutorial"]"""
                 )
                 .execute()
             )
+            logger.debug(f"search_response: {json.dumps(search_response, indent=2)}")
 
             video_ids = [
                 item["id"]["videoId"] for item in search_response.get("items", [])
