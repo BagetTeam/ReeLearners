@@ -14,7 +14,7 @@ type FeedClientProps = {
   feedIdParam: string;
 };
 
-export default function FeedClient({ feedIdParam }: FeedClientProps) {
+export default function FeedClient({ feedIdParam }: FeedClientProps) {  
   const { user, isLoading } = useUser();
   const router = useRouter();
   const [userId, setUserId] = useState<Id<"users"> | null>(null);
@@ -100,32 +100,6 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
     }
   }, [feed?.lastSeenIndex, feedId]);
 
-  useEffect(() => {
-    if (!feedId || reels === undefined || !feed) return;
-    if (reels.length > 0 || hydrateRef.current) return;
-
-    hydrateRef.current = true;
-    setIsHydrating(true);
-
-    const run = async () => {
-      try {
-        await fetchForPrompt({
-          feedId,
-          prompt: feed.prompt,
-          limit: FEED_BATCH_SIZE,
-        });
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch videos",
-        );
-      } finally {
-        setIsHydrating(false);
-      }
-    };
-
-    void run();
-  }, [feed, feedId, fetchForPrompt, reels]);
-
   const items = useMemo(() => {
     if (!reels) return [];
     return reels
@@ -147,6 +121,33 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
         };
       });
   }, [feed, reels]);
+
+  useEffect(() => {
+    if (!feedId || reels === undefined || !feed) return;
+    const remaining = items.length - (activeIndex + 1);
+    if (remaining > 0 || hydrateRef.current || isHydrating) return;
+    hydrateRef.current = true;
+    setIsHydrating(true);
+
+    const run = async () => {
+      try {
+        await fetchForPrompt({
+          feedId,
+          prompt: feed.prompt,
+          limit: FEED_BATCH_SIZE,
+        });
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch videos",
+        );
+      } finally {
+        setIsHydrating(false);
+        hydrateRef.current = false;
+      }
+    };
+
+    void run();
+  }, [activeIndex, feed, feedId, fetchForPrompt, items.length, isHydrating, reels]);
 
   const handleIndexChange = useCallback(
     (nextIndex: number) => {
