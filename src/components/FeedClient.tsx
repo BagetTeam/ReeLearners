@@ -107,6 +107,8 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
           description: reel.description ?? feed?.prompt ?? "Prompt feed",
           videoUrl: reel.videoUrl ?? "",
           isEmbed:
+            reel.videoUrl?.includes("youtube.com") ||
+            reel.videoUrl?.includes("youtu.be") ||
             reel.videoUrl?.includes("tiktok.com/embed") ||
             reel.videoUrl?.includes("tiktok.com/player") ||
             false,
