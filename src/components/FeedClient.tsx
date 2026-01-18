@@ -14,7 +14,7 @@ type FeedClientProps = {
   feedIdParam: string;
 };
 
-export default function FeedClient({ feedIdParam }: FeedClientProps) {  
+export default function FeedClient({ feedIdParam }: FeedClientProps) {
   const { user, isLoading } = useUser();
   const router = useRouter();
   const [userId, setUserId] = useState<Id<"users"> | null>(null);
@@ -31,18 +31,9 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
     () => (feedIdParam ? (feedIdParam as Id<"feeds">) : null),
     [feedIdParam],
   );
-  const feed = useQuery(
-    api.feeds.getById,
-    feedId ? { feedId } : "skip",
-  );
-  const reels = useQuery(
-    api.reels.listForFeed,
-    feedId ? { feedId } : "skip",
-  );
-  const stats = useQuery(
-    api.stats.getByUser,
-    userId ? { userId } : "skip",
-  );
+  const feed = useQuery(api.feeds.getById, feedId ? { feedId } : "skip");
+  const reels = useQuery(api.reels.listForFeed, feedId ? { feedId } : "skip");
+  const stats = useQuery(api.stats.getByUser, userId ? { userId } : "skip");
 
   const userInitRef = useRef(false);
   const hydrateRef = useRef(false);
@@ -73,8 +64,7 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
         }
         const id = await upsertUser({
           auth0Id,
-          email:
-            user.email ?? `${auth0Id.replace("|", "_")}@reelearners.local`,
+          email: user.email ?? `${auth0Id.replace("|", "_")}@reelearners.local`,
           name: user.name ?? user.nickname ?? "ReeLearner",
           avatarUrl: user.picture ?? undefined,
         });
@@ -88,6 +78,9 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
   }, [upsertUser, user]);
 
   useEffect(() => {
+    if (feed === null) {
+      return router.push("/");
+    }
     if (!feed || !userId) return;
     if (feed.userId !== userId) {
       setError("This feed does not belong to your account.");
@@ -137,7 +130,9 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
       limit: FEED_BATCH_SIZE,
     }).catch((err) => {
       tiktokFetchRef.current = false;
-      setError(err instanceof Error ? err.message : "Failed to fetch TikTok videos");
+      setError(
+        err instanceof Error ? err.message : "Failed to fetch TikTok videos",
+      );
     });
   }, [feed, feedId, fetchTikTokForPrompt, items.length]);
 
@@ -156,9 +151,7 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
           limit: FEED_BATCH_SIZE,
         });
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch videos",
-        );
+        setError(err instanceof Error ? err.message : "Failed to fetch videos");
       } finally {
         setIsHydrating(false);
         hydrateRef.current = false;
@@ -166,7 +159,15 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
     };
 
     void run();
-  }, [activeIndex, feed, feedId, fetchForPrompt, items.length, isHydrating, reels]);
+  }, [
+    activeIndex,
+    feed,
+    feedId,
+    fetchForPrompt,
+    items.length,
+    isHydrating,
+    reels,
+  ]);
 
   const handleIndexChange = useCallback(
     (nextIndex: number) => {
@@ -224,7 +225,9 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
         feedId,
         reelId: currentItem.id as Id<"reels">,
       }).catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to update streak");
+        setError(
+          err instanceof Error ? err.message : "Failed to update streak",
+        );
       });
     }, 5000);
   }, [activeIndex, feedId, items, recordView, userId]);
@@ -257,7 +260,9 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
           <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
             Authenticating
           </span>
-          <p className="text-sm text-muted-foreground">Checking your session...</p>
+          <p className="text-sm text-muted-foreground">
+            Checking your session...
+          </p>
         </div>
       </div>
     );
@@ -270,17 +275,9 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
           <span className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
             Loading feed
           </span>
-          <p className="text-sm text-muted-foreground">Fetching your reels...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (feed === null) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background text-foreground">
-        <div className="max-w-md text-center text-sm text-muted-foreground">
-          Feed not found.
+          <p className="text-sm text-muted-foreground">
+            Fetching your reels...
+          </p>
         </div>
       </div>
     );
@@ -307,7 +304,9 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
       items={items}
       promptLabel={feed?.prompt ?? "Your prompt"}
       initialIndex={feed?.lastSeenIndex ?? 0}
-      currentStreak={stats?.lastFeedId === feedId ? stats?.currentStreak ?? 0 : 0}
+      currentStreak={
+        stats?.lastFeedId === feedId ? (stats?.currentStreak ?? 0) : 0
+      }
       onIndexChange={handleIndexChange}
     />
   );
