@@ -429,10 +429,6 @@ export default function FeedScroller({
                     autoPlay={index === currentIndex}
                   />
                 )}
-                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Swipe for next</span>
-                  <span>Tap to like</span>
-                </div>
                 {index === currentIndex && needsUserGesture && (
                   <button
                     type="button"
