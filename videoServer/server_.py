@@ -212,6 +212,7 @@ async def search_videos(
         logger.info(
             f"Searching for: {query} (sources={requested_sources}, optimize={optimize})"
         )
+        logger.info("Resolved sources list: %s", requested_sources)
 
         per_source_limit = max(1, max_results // max(1, len(requested_sources)))
         videos = []
