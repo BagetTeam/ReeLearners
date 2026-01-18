@@ -40,6 +40,8 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
   const userInitRef = useRef(false);
   const hydrateRef = useRef(false);
   const progressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fetchMoreRef = useRef(false);
+  const lastFetchLengthRef = useRef(0);
 
   useEffect(() => {
     if (isLoading) return;
@@ -122,8 +124,33 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
           lastSeenReelId: reels[nextIndex]._id,
         });
       }, 400);
+
+      const isLastItem = nextIndex >= items.length - 1;
+      if (!feed || !isLastItem) return;
+      if (fetchMoreRef.current || lastFetchLengthRef.current === items.length) {
+        return;
+      }
+      const startingLength = items.length;
+      fetchMoreRef.current = true;
+      lastFetchLengthRef.current = startingLength;
+      void (async () => {
+        try {
+          await fetchForPrompt({
+            feedId,
+            prompt: feed.prompt,
+            limit: FEED_BATCH_SIZE,
+          });
+        } catch (err) {
+          lastFetchLengthRef.current = 0;
+          setError(
+            err instanceof Error ? err.message : "Failed to fetch videos",
+          );
+        } finally {
+          fetchMoreRef.current = false;
+        }
+      })();
     },
-    [feedId, reels, updateProgress],
+    [feed, feedId, fetchForPrompt, items.length, reels, updateProgress],
   );
 
   useEffect(() => {
