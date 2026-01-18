@@ -280,19 +280,19 @@ export default function FeedScroller({
   }, [currentIndex, visibleIndices]);
 
   return (
-    <div className="flex h-screen flex-col bg-black text-white">
-      <div className="flex items-center justify-between border-b border-white/10 px-6 py-4">
+    <div className="flex h-screen flex-col bg-background text-foreground">
+      <div className="flex items-center justify-between border-b border-border px-6 py-4">
         <div className="flex flex-col gap-1">
-          <p className="text-xs uppercase tracking-[0.2em] text-white/60">
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
             Channel
           </p>
           <h1 className="text-lg font-semibold">{promptLabel}</h1>
         </div>
-        <div className="flex items-center gap-3 text-xs text-white/60">
-          <span className="rounded-full border border-white/20 px-3 py-1">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <span className="rounded-full border border-border px-3 py-1">
             Auto-play on
           </span>
-          <span className="rounded-full border border-white/20 px-3 py-1">
+          <span className="rounded-full border border-border px-3 py-1">
             {Math.min(currentIndex + 1, items.length)} of {items.length}
           </span>
         </div>
@@ -321,13 +321,13 @@ export default function FeedScroller({
               }}
             >
               <div className="flex w-full max-w-sm flex-col gap-3 text-center">
-                <p className="text-xs uppercase tracking-[0.3em] text-white/50">
+                <p className="text-xs uppercase tracking-[0.3em] text-muted-foreground">
                   {item.source}
                 </p>
                 <h2 className="text-2xl font-semibold">{item.title}</h2>
-                <p className="text-sm text-white/70">{item.description}</p>
+                <p className="text-sm text-muted-foreground">{item.description}</p>
               </div>
-              <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-white/10 bg-white/5 shadow-2xl">
+              <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl">
                 {item.isEmbed ? (
                   <div
                     ref={(element) => {
@@ -357,7 +357,7 @@ export default function FeedScroller({
                     autoPlay={index === currentIndex}
                   />
                 )}
-                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs text-white/70">
+                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-xs text-muted-foreground">
                   <span>Swipe for next</span>
                   <span>Tap to like</span>
                 </div>

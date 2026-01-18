@@ -140,9 +140,12 @@ export const fetchForPrompt = action({
     });
 
     const baseUrl =
-      process.env.VIDEO_API_URL ??
-      process.env.NEXT_PUBLIC_VIDEO_API_URL ??
-      "http://localhost:8000";
+      process.env.VIDEO_API_URL ?? process.env.NEXT_PUBLIC_VIDEO_API_URL;
+
+    if (!baseUrl) {
+      throw new Error("VIDEO_API_URL not set");
+    }
+
     const url = new URL("/search", baseUrl);
     url.searchParams.set("query", args.prompt);
     url.searchParams.set("max_results", String(args.limit ?? 8));
