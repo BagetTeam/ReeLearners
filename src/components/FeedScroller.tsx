@@ -40,6 +40,8 @@ const getYouTubeId = (url: string) => {
   return match?.[1] ?? null;
 };
 
+const isTikTokEmbed = (url: string) => url.includes("tiktok.com/embed");
+
 export default function FeedScroller({
   items,
   promptLabel,
@@ -234,6 +236,9 @@ export default function FeedScroller({
     if (!ytReady) return;
     visibleIndices.forEach((index) => {
       const item = items[index];
+      if (item?.isEmbed && isTikTokEmbed(item.videoUrl)) {
+        return;
+      }
       if (!item?.isEmbed) return;
       if (ytPlayerRefs.current.has(index)) return;
       const container = ytContainerRefs.current.get(index);
@@ -340,16 +345,26 @@ export default function FeedScroller({
               </div>
               <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl border-(--muted)">
                 {item.isEmbed ? (
-                  <div
-                    ref={(element) => {
-                      if (element) {
-                        ytContainerRefs.current.set(index, element);
-                      } else {
-                        ytContainerRefs.current.delete(index);
-                      }
-                    }}
-                    className="h-[60vh] w-full"
-                  />
+                  isTikTokEmbed(item.videoUrl) ? (
+                    <iframe
+                      className="h-[60vh] w-full"
+                      src={`${item.videoUrl}?autoplay=1&loop=1`}
+                      title={item.title}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  ) : (
+                    <div
+                      ref={(element) => {
+                        if (element) {
+                          ytContainerRefs.current.set(index, element);
+                        } else {
+                          ytContainerRefs.current.delete(index);
+                        }
+                      }}
+                      className="h-[60vh] w-full"
+                    />
+                  )
                 ) : (
                   <video
                     ref={(element) => {
