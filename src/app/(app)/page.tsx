@@ -5,7 +5,7 @@ export default function HomePage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-6 py-12">
       <div className="flex w-full max-w-md flex-col gap-8">
-        <div className="pt-10">
+        <div className="pt-15">
           <PromptForm />
         </div>
 

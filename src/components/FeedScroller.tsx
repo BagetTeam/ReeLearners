@@ -281,7 +281,7 @@ export default function FeedScroller({
 
   return (
     <div className="flex h-screen flex-col bg-background text-foreground">
-      <div className="flex items-center justify-between border-b border-border px-6 py-4">
+      <div className="flex items-center justify-between border-b border-border px-6 py-4 border-(--muted)">
         <div className="flex flex-col gap-1">
           <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground">
             Channel
@@ -289,10 +289,10 @@ export default function FeedScroller({
           <h1 className="text-lg font-semibold">{promptLabel}</h1>
         </div>
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <span className="rounded-full border border-border px-3 py-1">
+          <span className="rounded-full border border-border px-3 py-1 border-(--muted)">
             Auto-play on
           </span>
-          <span className="rounded-full border border-border px-3 py-1">
+          <span className="rounded-full border border-border px-3 py-1 border-(--muted)">
             {Math.min(currentIndex + 1, items.length)} of {items.length}
           </span>
         </div>
@@ -327,7 +327,7 @@ export default function FeedScroller({
                 <h2 className="text-2xl font-semibold">{item.title}</h2>
                 <p className="text-sm text-muted-foreground">{item.description}</p>
               </div>
-              <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl">
+              <div className="relative w-full max-w-sm overflow-hidden rounded-3xl border border-border bg-card shadow-2xl border-(--muted)">
                 {item.isEmbed ? (
                   <div
                     ref={(element) => {
