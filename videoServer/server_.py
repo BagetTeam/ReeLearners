@@ -37,16 +37,27 @@ youtube_searcher = None
 
 
 def get_youtube_searcher():
-    """Lazy initialization of YouTube Searcher"""
+    """Lazy initialization of YouTube Searcher with Gemini support"""
     global youtube_searcher
     if youtube_searcher is None:
         try:
             from realVideos import YouTubeShortsSearcher
 
-            api_key = os.getenv("YOUTUBE_API_KEY")
-            if api_key:
-                youtube_searcher = YouTubeShortsSearcher(api_key)
-                logger.info("YouTube Searcher initialized successfully")
+            youtube_api_key = os.getenv("YOUTUBE_API_KEY")
+            gemini_api_key = os.getenv("GEMINI_API_KEY")  # Get Gemini key
+
+            if youtube_api_key:
+                # Initialize with both keys (Gemini is optional)
+                youtube_searcher = YouTubeShortsSearcher(
+                    youtube_api_key, gemini_api_key
+                )
+
+                if gemini_api_key:
+                    logger.info("YouTube Searcher initialized with Gemini optimization")
+                else:
+                    logger.info(
+                        "YouTube Searcher initialized (Gemini disabled - no API key)"
+                    )
             else:
                 logger.warning("YOUTUBE_API_KEY not set")
         except Exception as e:
@@ -66,6 +77,7 @@ class VideoListResponse(BaseModel):
     videos: List[VideoResponse]
     count: int
     query: str
+    optimized_query: Optional[str] = None  # Show what Gemini optimized it to
 
 
 class EmbedLinkResponse(BaseModel):
@@ -95,6 +107,7 @@ async def root():
         "status": "ok",
         "message": "ReeLearners Video API is running",
         "version": "1.0.0",
+        "gemini_enabled": os.getenv("GEMINI_API_KEY") is not None,
     }
 
 
@@ -106,13 +119,20 @@ async def health():
 
 
 @app.get("/search", response_model=VideoListResponse, tags=["Search"])
-async def search_videos(query: str, max_results: int = 10):
+async def search_videos(
+    query: str,
+    max_results: int = 50,
+    optimize: bool = True,  # New parameter to control Gemini optimization
+):
     """
     Search for YouTube Shorts based on a query.
 
     Args:
-        query: Search term (e.g., "Python tutorial", "Machine Learning")
+        query: Search term - can be natural language if Gemini is enabled
+               (e.g., "I want to learn Python programming for beginners"
+                or just "Python tutorial")
         max_results: Maximum number of results (1-50, default: 10)
+        optimize: Whether to use Gemini to optimize the query (default: True)
 
     Returns:
         List of videos with embedded links
@@ -134,15 +154,25 @@ async def search_videos(query: str, max_results: int = 10):
         )
 
     try:
-        logger.info(f"Searching for: {query}")
-        videos = searcher.search_shorts(query, max_results)
+        logger.info(f"Searching for: {query} (optimize={optimize})")
+
+        # Search with optional optimization
+        videos = searcher.search_shorts(query, max_results, optimize_prompt=optimize)
+
         if not videos:
-            return VideoListResponse(videos=[], count=0, query=query)
+            return VideoListResponse(
+                videos=[], count=0, query=query, optimized_query=None
+            )
+
+        # Note: We don't have direct access to the optimized query from search_shorts
+        # If you want to return it, you'd need to modify YouTubeShortsSearcher.search_shorts
+        # to return both videos and the optimized query
 
         return VideoListResponse(
             videos=[VideoResponse(**video) for video in videos],
             count=len(videos),
             query=query,
+            optimized_query=None,  # Could be enhanced to show actual optimized query
         )
     except Exception as e:
         logger.error(f"Search failed: {e}")
