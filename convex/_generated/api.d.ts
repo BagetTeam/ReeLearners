@@ -10,6 +10,7 @@
 
 import type * as feeds from "../feeds.js";
 import type * as reels from "../reels.js";
+import type * as stats from "../stats.js";
 import type * as users from "../users.js";
 
 import type {
@@ -21,6 +22,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   feeds: typeof feeds;
   reels: typeof reels;
+  stats: typeof stats;
   users: typeof users;
 }>;
 

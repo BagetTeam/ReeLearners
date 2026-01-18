@@ -14,16 +14,18 @@ type FeedClientProps = {
   feedIdParam: string;
 };
 
-export default function FeedClient({ feedIdParam }: FeedClientProps) {
+export default function FeedClient({ feedIdParam }: FeedClientProps) {  
   const { user, isLoading } = useUser();
   const router = useRouter();
   const [userId, setUserId] = useState<Id<"users"> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isHydrating, setIsHydrating] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   const upsertUser = useMutation(api.users.upsert);
   const updateProgress = useMutation(api.feeds.updateProgress);
   const fetchForPrompt = useAction(api.reels.fetchForPrompt);
+  const recordView = useMutation(api.stats.recordView);
   const feedId = useMemo(
     () => (feedIdParam ? (feedIdParam as Id<"feeds">) : null),
     [feedIdParam],
@@ -36,12 +38,17 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
     api.reels.listForFeed,
     feedId ? { feedId } : "skip",
   );
+  const stats = useQuery(
+    api.stats.getByUser,
+    userId ? { userId } : "skip",
+  );
 
   const userInitRef = useRef(false);
   const hydrateRef = useRef(false);
   const progressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fetchMoreRef = useRef(false);
   const lastFetchLengthRef = useRef(0);
+  const streakTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (isLoading) return;
@@ -86,30 +93,12 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
   }, [feed, userId]);
 
   useEffect(() => {
-    if (!feedId || reels === undefined || !feed) return;
-    if (reels.length > 0 || hydrateRef.current) return;
-
-    hydrateRef.current = true;
-    setIsHydrating(true);
-
-    const run = async () => {
-      try {
-        await fetchForPrompt({
-          feedId,
-          prompt: feed.prompt,
-          limit: FEED_BATCH_SIZE,
-        });
-      } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch videos",
-        );
-      } finally {
-        setIsHydrating(false);
-      }
-    };
-
-    void run();
-  }, [feed, feedId, fetchForPrompt, reels]);
+    if (feed?.lastSeenIndex !== undefined) {
+      setActiveIndex(feed.lastSeenIndex);
+    } else {
+      setActiveIndex(0);
+    }
+  }, [feed?.lastSeenIndex, feedId]);
 
   const items = useMemo(() => {
     if (!reels) return [];
@@ -133,9 +122,37 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
       });
   }, [feed, reels]);
 
+  useEffect(() => {
+    if (!feedId || reels === undefined || !feed) return;
+    const remaining = items.length - (activeIndex + 1);
+    if (remaining > 0 || hydrateRef.current || isHydrating) return;
+    hydrateRef.current = true;
+    setIsHydrating(true);
+
+    const run = async () => {
+      try {
+        await fetchForPrompt({
+          feedId,
+          prompt: feed.prompt,
+          limit: FEED_BATCH_SIZE,
+        });
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to fetch videos",
+        );
+      } finally {
+        setIsHydrating(false);
+        hydrateRef.current = false;
+      }
+    };
+
+    void run();
+  }, [activeIndex, feed, feedId, fetchForPrompt, items.length, isHydrating, reels]);
+
   const handleIndexChange = useCallback(
     (nextIndex: number) => {
       if (!feedId || !reels || !reels[nextIndex]) return;
+      setActiveIndex((prev) => (prev === nextIndex ? prev : nextIndex));
       if (progressTimerRef.current) {
         clearTimeout(progressTimerRef.current);
       }
@@ -176,9 +193,30 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
   );
 
   useEffect(() => {
+    if (!userId || !feedId) return;
+    const currentItem = items[activeIndex];
+    if (!currentItem) return;
+    if (streakTimerRef.current) {
+      clearTimeout(streakTimerRef.current);
+    }
+    streakTimerRef.current = setTimeout(() => {
+      void recordView({
+        userId,
+        feedId,
+        reelId: currentItem.id as Id<"reels">,
+      }).catch((err) => {
+        setError(err instanceof Error ? err.message : "Failed to update streak");
+      });
+    }, 5000);
+  }, [activeIndex, feedId, items, recordView, userId]);
+
+  useEffect(() => {
     return () => {
       if (progressTimerRef.current) {
         clearTimeout(progressTimerRef.current);
+      }
+      if (streakTimerRef.current) {
+        clearTimeout(streakTimerRef.current);
       }
     };
   }, []);
@@ -250,6 +288,7 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
       items={items}
       promptLabel={feed?.prompt ?? "Your prompt"}
       initialIndex={feed?.lastSeenIndex ?? 0}
+      currentStreak={stats?.lastFeedId === feedId ? stats?.currentStreak ?? 0 : 0}
       onIndexChange={handleIndexChange}
     />
   );
