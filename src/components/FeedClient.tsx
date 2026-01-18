@@ -115,6 +115,7 @@ export default function FeedClient({ feedIdParam }: FeedClientProps) {
           isEmbed:
             reel.videoUrl?.includes("youtube.com/embed") ||
             reel.videoUrl?.includes("tiktok.com/embed") ||
+            reel.videoUrl?.includes("tiktok.com/player") ||
             false,
         };
       });
